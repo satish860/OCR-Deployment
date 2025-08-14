@@ -1,0 +1,174 @@
+import modal
+from typing import Dict, Any
+import base64
+import io
+from PIL import Image
+
+# Create Modal app
+app = modal.App("dots-ocr")
+
+# Define the Docker image based on the blog post
+image = (
+    modal.Image.from_registry("rednotehilab/dots.ocr:vllm-openai-v0.9.1")
+    .apt_install("curl")  # For health checks
+)
+
+# Create GPU-enabled function
+@app.function(
+    image=image,
+    gpu=modal.gpu.A100(),  # Use A100 GPU for optimal performance
+    container_idle_timeout=300,  # Keep warm for 5 minutes
+    timeout=3600,  # 1 hour timeout for long processing
+    allow_concurrent_inputs=10,  # Handle multiple requests
+)
+@modal.web_endpoint(method="POST", label="dots-ocr-api")
+def process_ocr(request_data: Dict[str, Any]):
+    """
+    Process OCR requests using Dots.OCR service
+    Compatible with OpenAI chat completions format
+    """
+    import requests
+    import json
+    
+    # Forward request to the vLLM server running inside container
+    try:
+        response = requests.post(
+            "http://localhost:8000/v1/chat/completions",
+            json=request_data,
+            timeout=300
+        )
+        response.raise_for_status()
+        return response.json()
+    
+    except requests.exceptions.RequestException as e:
+        return {
+            "error": f"OCR processing failed: {str(e)}",
+            "status": "error"
+        }
+
+# Health check endpoint
+@app.function(
+    image=image,
+    gpu=modal.gpu.A100(),
+)
+@modal.web_endpoint(method="GET", label="health")
+def health_check():
+    """Health check endpoint"""
+    import requests
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=10)
+        return {"status": "healthy", "service": "dots-ocr"}
+    except:
+        return {"status": "unhealthy", "service": "dots-ocr"}
+
+# Convenience function for direct OCR processing
+@app.function(
+    image=image,
+    gpu=modal.gpu.A100(),
+    container_idle_timeout=300,
+)
+def extract_text_from_image(image_data: bytes, prompt: str = "Extract all text") -> str:
+    """
+    Direct function to extract text from image bytes
+    """
+    import requests
+    import base64
+    
+    # Convert image bytes to base64
+    image_b64 = base64.b64encode(image_data).decode('utf-8')
+    
+    # Prepare request in OpenAI format
+    request_data = {
+        "model": "dots.ocr",
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {
+                    "type": "image_url", 
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{image_b64}"
+                    }
+                }
+            ]
+        }]
+    }
+    
+    try:
+        response = requests.post(
+            "http://localhost:8000/v1/chat/completions",
+            json=request_data,
+            timeout=300
+        )
+        response.raise_for_status()
+        result = response.json()
+        
+        # Extract text from response
+        if "choices" in result and len(result["choices"]) > 0:
+            return result["choices"][0]["message"]["content"]
+        else:
+            return "No text extracted"
+            
+    except Exception as e:
+        return f"Error processing image: {str(e)}"
+
+# Batch processing function
+@app.function(
+    image=image,
+    gpu=modal.gpu.A100(),
+    container_idle_timeout=300,
+)
+def batch_ocr_processing(image_list: list, prompt: str = "Extract all text") -> list:
+    """
+    Process multiple images in batch
+    """
+    results = []
+    
+    for i, image_data in enumerate(image_list):
+        try:
+            text = extract_text_from_image.local(image_data, prompt)
+            results.append({
+                "index": i,
+                "status": "success",
+                "text": text
+            })
+        except Exception as e:
+            results.append({
+                "index": i,
+                "status": "error",
+                "error": str(e)
+            })
+    
+    return results
+
+# Client example function
+if __name__ == "__main__":
+    # Example usage - this would run locally to test the deployed service
+    import requests
+    
+    def test_modal_ocr():
+        # Your Modal endpoint URL (replace with actual URL after deployment)
+        modal_url = "https://your-username--dots-ocr-dots-ocr-api.modal.run"
+        
+        # Example request
+        test_request = {
+            "model": "dots.ocr",
+            "messages": [{
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Extract all text from this image"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,/9j/4AAQ..."  # Your base64 image
+                        }
+                    }
+                ]
+            }]
+        }
+        
+        response = requests.post(modal_url, json=test_request)
+        print(response.json())
+    
+    # Uncomment to test
+    # test_modal_ocr()

@@ -326,6 +326,50 @@ def generate(request_data: dict):
     )
 
 
+@app.function(image=vllm_image)
+@modal.fastapi_endpoint(method="POST", label="dotsocr-batch-v2")
+def generate_batch(request_data: dict):
+    """
+    Generate OCR results from multiple base64 images in batch.
+    
+    Expected format:
+    {
+        "images": ["base64_encoded_image1", "base64_encoded_image2", ...],
+        "prompt_mode": "prompt_layout_all_en",
+        "max_tokens": 1500,
+        "temperature": 0.1,
+        "top_p": 0.9
+    }
+    """
+    images = request_data.get("images", [])
+    if not images:
+        return {"success": False, "error": "No images provided"}
+    
+    prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
+    max_tokens = request_data.get("max_tokens", 1500)
+    temperature = request_data.get("temperature", 0.1)
+    top_p = request_data.get("top_p", 0.9)
+    
+    results = []
+    for i, image_data in enumerate(images):
+        result = _process_ocr_request(
+            image_data=image_data,
+            prompt_mode=prompt_mode,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            from_base64=True
+        )
+        # Add page number to result
+        if result.get("success"):
+            result["page_number"] = i
+        results.append(result)
+    
+    return {
+        "success": True,
+        "total_pages": len(images),
+        "results": results
+    }
 
 
 @app.function(image=vllm_image)

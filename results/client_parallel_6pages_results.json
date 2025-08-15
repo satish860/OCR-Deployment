@@ -1,0 +1,63 @@
+{
+  "test_type": "client_parallel",
+  "page_count": 6,
+  "max_workers": 6,
+  "total_time": 195.59500813484192,
+  "parallel_time": 190.1862132549286,
+  "convert_time": 5.40879487991333,
+  "successful_pages": 4,
+  "speedup": 0.4732204215000726,
+  "improvement_percent": -111.31801472769843,
+  "thread_usage": {
+    "ThreadPoolExecutor-1_0": 1,
+    "ThreadPoolExecutor-1_1": 1,
+    "ThreadPoolExecutor-1_2": 1,
+    "ThreadPoolExecutor-1_3": 1,
+    "ThreadPoolExecutor-1_4": 1,
+    "ThreadPoolExecutor-1_5": 1
+  },
+  "results": [
+    {
+      "page_number": 0,
+      "success": true,
+      "result": "    [{\"bbox\": [705, 259, 802, 294], \"category\": \"Section-header\", \"text\": \"प्रपत्र-६\"}, {\"bbox\": [581, 304, 924, 362], \"category\": \"Text\", \"text\": \"[नियम 10 (9),11 (2),64(1),64 (3) (i)]\"}, {\"bbox\": [606, 363, 888, 417], \"category\": \"Section-header\", \"text\": \"समाजिक जांच रिपोर्ट\"}, {\"bbox\": [528, 418, 960, 479], \"category\": \"Text\", \"text\": \"कानून का उल्लंघन करने वाले बच्चों के लिए\"}, {\"bbox\": [264, 446, 445, 481], \"category\": \"Text\", \"text\": \"क०सं०....................................\"}, {\"bbox\": [259, 492, 416, 530], \"category\": \"Text\", \"text\": \"किशोर न्याय बोर्ड,\"}, {\"bbox\": [460, 523, 743, 574], \"category\": \"Text\", \"text\": \"सन्तुकबील छाउँट\"}, {\"bbox\": [778, 537, 952, 577], \"category\": \"Text\", \"text\": \"....(पता) को प्रस्तुत ।\"}, {\"bbox\": [255, 543, 755, 605], \"category\": \"Text\", \"text\": \"परिवीक्षा विभाग / स्वैच्छिक / गैर सरकारी संगठन....................\"}, {\"bbox\": [252, 592, 390, 627], \"category\": \"Text\", \"text\": \"प्राथमिकी संख्या.\"}, {\"bbox\": [387, 614, 476, 648], \"category\": \"Text\", \"text\": \"३/१२\"}, {\"bbox\": [769, 592, 909, 642], \"category\": \"Text\", \"text\": \"ई-ना-भुमिश्र.\"}, {\"bbox\": [1023, 605, 1159, 643], \"category\": \"Text\", \"text\": \"(व्यक्ति का नाम)\"}, {\"bbox\": [247, 645, 390, 677], \"category\": \"Text\", \"text\": \"योग्यते के अन्तर्गत\"}, {\"bbox\": [385, 672, 735, 735], \"category\": \"Text\", \"text\": \"३०७, ५०६, २.२.८-९.३/५\"}, {\"bbox\": [761, 687, 1022, 738], \"category\": \"Text\", \"text\": \"प्रान्तको स्वच्छत\"}, {\"bbox\": [242, 696, 362, 732], \"category\": \"Text\", \"text\": \"पुलिस स्टेशन\"}, {\"bbox\": [237, 753, 503, 798], \"category\": \"Text\", \"text\": \"तथा कथित अपराध की पकृति :\"}, {\"bbox\": [531, 776, 581, 808], \"category\": \"Text\", \"text\": \"लघु-\"}, {\"bbox\": [585, 779, 604, 807], \"category\": \"Picture\"}, {\"bbox\": [666, 787, 726, 813], \"category\": \"Text\", \"text\": \"गंभीर-\"}, {\"bbox\": [806, 802, 881, 830], \"category\": \"Text\", \"text\": \"जयन्य-\"}, {\"bbox\": [883, 805, 902, 833], \"category\": \"Picture\"}, {\"bbox\": [235, 809, 485, 870], \"category\": \"List-item\", \"text\": \"1-नाम....................................श्वेतस्त शर्मा\"}, {\"bbox\": [228, 862, 500, 904], \"category\": \"List-item\", \"text\": \"2-आयु/तारीख/जन्म का वर्ष\"}, {\"bbox\": [225, 913, 351, 961], \"category\": \"List-item\", \"text\": \"3-लिंग-पु-ए\"}, {\"bbox\": [627, 909, 844, 959], \"category\": \"Text\", \"text\": \"२०-५-२००३\"}, {\"bbox\": [220, 968, 592, 1025], \"category\": \"List-item\", \"text\": \"4-जाति....................................स्वान\"}, {\"bbox\": [216, 1022, 581, 1077], \"category\": \"List-item\", \"text\": \"5-धर्म....................................स्वर्ग\"}, {\"bbox\": [212, 1074, 368, 1106], \"category\": \"List-item\", \"text\": \"6-पिता का नाम....................................",
+      "processing_time": 26.433204412460327,
+      "thread_name": "ThreadPoolExecutor-1_0"
+    },
+    {
+      "page_number": 1,
+      "success": true,
+      "result": "",
+      "processing_time": 190.1693925857544,
+      "thread_name": "ThreadPoolExecutor-1_1"
+    },
+    {
+      "page_number": 2,
+      "success": false,
+      "error": "HTTP 500: modal-http: internal error: function was terminated by signal\n",
+      "processing_time": 189.85204482078552,
+      "thread_name": "ThreadPoolExecutor-1_2"
+    },
+    {
+      "page_number": 3,
+      "success": false,
+      "error": "HTTP 500: modal-http: internal error: function was terminated by signal\n",
+      "processing_time": 189.42069029808044,
+      "thread_name": "ThreadPoolExecutor-1_3"
+    },
+    {
+      "page_number": 4,
+      "success": true,
+      "result": "",
+      "processing_time": 189.75276947021484,
+      "thread_name": "ThreadPoolExecutor-1_4"
+    },
+    {
+      "page_number": 5,
+      "success": true,
+      "result": "",
+      "processing_time": 189.50769090652466,
+      "thread_name": "ThreadPoolExecutor-1_5"
+    }
+  ]
+}

@@ -144,6 +144,97 @@ def test_multi_page_batch():
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
 
+def test_parallel_vs_sequential_comparison():
+    """Compare parallel vs sequential batch processing"""
+    print("\n" + "=" * 60)
+    print("PERFORMANCE COMPARISON: Sequential vs Parallel Batch")
+    print("=" * 60)
+    
+    pdf_path = "2e1b63c5-761d-48b9-b3b5-f263c3db4e30.pdf"
+    sequential_endpoint = "https://marker--dotsocr-batch-v2.modal.run"
+    parallel_endpoint = "https://marker--dotsocr-batch-parallel-v2.modal.run"
+    test_pages = 3  # Test with 3 pages for comparison
+    
+    # Convert pages
+    pages = pdf_to_base64_pages(pdf_path, max_pages=test_pages)
+    images_b64 = [page["base64"] for page in pages]
+    
+    print(f"Testing with {test_pages} pages...")
+    
+    # Test sequential batch endpoint
+    print(f"\n1. Testing Sequential Batch Endpoint...")
+    start_time = time.time()
+    sequential_request = {
+        "images": images_b64,
+        "prompt_mode": "prompt_layout_all_en",
+        "max_tokens": 1500,
+        "temperature": 0.0,
+        "top_p": 0.9
+    }
+    
+    try:
+        response = requests.post(sequential_endpoint, json=sequential_request, timeout=600)
+        sequential_time = time.time() - start_time
+        print(f"Sequential batch: {sequential_time:.2f}s ({sequential_time/test_pages:.2f}s per page)")
+        sequential_success = response.status_code == 200
+    except Exception as e:
+        print(f"Sequential batch failed: {e}")
+        sequential_time = None
+        sequential_success = False
+    
+    # Test parallel batch endpoint
+    print(f"\n2. Testing Parallel Batch Endpoint...")
+    start_time = time.time()
+    parallel_request = {
+        "images": images_b64,
+        "prompt_mode": "prompt_layout_all_en",
+        "max_tokens": 1500,
+        "temperature": 0.0,
+        "top_p": 0.9
+    }
+    
+    try:
+        response = requests.post(parallel_endpoint, json=parallel_request, timeout=600)
+        parallel_time = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            timing_info = result.get("timing", {})
+            launch_time = timing_info.get("launch_time", 0)
+            collection_time = timing_info.get("collection_time", 0)
+            
+            print(f"Parallel batch: {parallel_time:.2f}s ({parallel_time/test_pages:.2f}s per page)")
+            print(f"  Launch time: {launch_time:.2f}s")
+            print(f"  Collection time: {collection_time:.2f}s")
+            parallel_success = True
+        else:
+            print(f"Parallel batch failed with status {response.status_code}")
+            parallel_success = False
+    except Exception as e:
+        print(f"Parallel batch failed: {e}")
+        parallel_time = None
+        parallel_success = False
+    
+    # Compare results
+    if sequential_time and parallel_time and sequential_success and parallel_success:
+        improvement = sequential_time - parallel_time
+        percentage = (improvement / sequential_time) * 100
+        speedup = sequential_time / parallel_time
+        
+        print(f"\n📊 PERFORMANCE COMPARISON:")
+        print(f"Sequential: {sequential_time:.2f}s")
+        print(f"Parallel:   {parallel_time:.2f}s")
+        print(f"Improvement: {improvement:.2f}s ({percentage:.1f}% faster)")
+        print(f"Speedup: {speedup:.1f}x")
+        
+        if percentage > 50:
+            print("🚀 Excellent parallel speedup!")
+        elif percentage > 20:
+            print("✅ Good parallel performance")
+        else:
+            print("⚠️ Limited parallel benefit")
+
+
 def test_single_vs_batch_comparison():
     """Compare single page processing vs batch processing"""
     print("\n" + "=" * 60)
@@ -200,7 +291,69 @@ def test_single_vs_batch_comparison():
         overhead = batch_time - single_time
         print(f"\nBatch overhead: {overhead:.2f}s ({overhead/single_time*100:.1f}%)")
 
+
+def test_large_batch():
+    """Test with larger number of pages to demonstrate parallel scaling"""
+    print("\n" + "=" * 60)
+    print("LARGE BATCH TEST: 9 Pages")
+    print("=" * 60)
+    
+    pdf_path = "2e1b63c5-761d-48b9-b3b5-f263c3db4e30.pdf"
+    parallel_endpoint = "https://marker--dotsocr-batch-parallel-v2.modal.run"
+    
+    # Convert more pages for scaling test
+    pages = pdf_to_base64_pages(pdf_path, max_pages=9)
+    images_b64 = [page["base64"] for page in pages]
+    
+    print(f"Testing parallel processing with {len(pages)} pages...")
+    print(f"Expected sequential time: ~{len(pages) * 15:.0f} seconds")
+    print(f"Expected parallel time: ~15-20 seconds")
+    
+    start_time = time.time()
+    request_data = {
+        "images": images_b64,
+        "prompt_mode": "prompt_layout_all_en",
+        "max_tokens": 1500,
+        "temperature": 0.0,
+        "top_p": 0.9
+    }
+    
+    try:
+        response = requests.post(parallel_endpoint, json=request_data, timeout=1200)  # 20 minute timeout
+        total_time = time.time() - start_time
+        
+        if response.status_code == 200:
+            result = response.json()
+            timing_info = result.get("timing", {})
+            results = result.get("results", [])
+            
+            successful_pages = sum(1 for r in results if r.get("success"))
+            
+            print(f"\n🎉 SUCCESS! Processed {successful_pages}/{len(pages)} pages")
+            print(f"Total time: {total_time:.2f}s")
+            print(f"Average per page: {total_time/len(pages):.2f}s")
+            print(f"Launch time: {timing_info.get('launch_time', 0):.2f}s")
+            print(f"Collection time: {timing_info.get('collection_time', 0):.2f}s")
+            
+            # Calculate theoretical improvement
+            sequential_estimate = len(pages) * 15
+            improvement = ((sequential_estimate - total_time) / sequential_estimate) * 100
+            print(f"Estimated improvement vs sequential: {improvement:.1f}%")
+            
+            # Save results
+            with open("large_batch_results.json", "w", encoding="utf-8") as f:
+                json.dump(result, f, ensure_ascii=False, indent=2)
+            print(f"Results saved to large_batch_results.json")
+            
+        else:
+            print(f"Failed with status {response.status_code}: {response.text}")
+            
+    except Exception as e:
+        print(f"Large batch test failed: {e}")
+
 if __name__ == "__main__":
     print("Testing multi-page OCR batch processing")
     test_multi_page_batch()
     test_single_vs_batch_comparison()
+    test_parallel_vs_sequential_comparison()
+    test_large_batch()

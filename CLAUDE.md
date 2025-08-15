@@ -1,0 +1,2 @@
+- use Powershell instead of bash
+- Dont use Emoji in code.

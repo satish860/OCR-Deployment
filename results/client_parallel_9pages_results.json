@@ -1,0 +1,87 @@
+{
+  "test_type": "client_parallel",
+  "page_count": 9,
+  "max_workers": 9,
+  "total_time": 9.084579944610596,
+  "parallel_time": 1.6685988903045654,
+  "convert_time": 7.41598105430603,
+  "successful_pages": 0,
+  "speedup": 80.90620267364481,
+  "improvement_percent": 98.76400082199662,
+  "thread_usage": {
+    "ThreadPoolExecutor-2_0": 1,
+    "ThreadPoolExecutor-2_1": 1,
+    "ThreadPoolExecutor-2_2": 1,
+    "ThreadPoolExecutor-2_3": 1,
+    "ThreadPoolExecutor-2_4": 1,
+    "ThreadPoolExecutor-2_5": 1,
+    "ThreadPoolExecutor-2_6": 1,
+    "ThreadPoolExecutor-2_7": 1,
+    "ThreadPoolExecutor-2_8": 1
+  },
+  "results": [
+    {
+      "page_number": 0,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.6243996620178223,
+      "thread_name": "ThreadPoolExecutor-2_0"
+    },
+    {
+      "page_number": 1,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.6280016899108887,
+      "thread_name": "ThreadPoolExecutor-2_1"
+    },
+    {
+      "page_number": 2,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.6392717361450195,
+      "thread_name": "ThreadPoolExecutor-2_2"
+    },
+    {
+      "page_number": 3,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.6377522945404053,
+      "thread_name": "ThreadPoolExecutor-2_3"
+    },
+    {
+      "page_number": 4,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.640052318572998,
+      "thread_name": "ThreadPoolExecutor-2_4"
+    },
+    {
+      "page_number": 5,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.5943524837493896,
+      "thread_name": "ThreadPoolExecutor-2_5"
+    },
+    {
+      "page_number": 6,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.6057395935058594,
+      "thread_name": "ThreadPoolExecutor-2_6"
+    },
+    {
+      "page_number": 7,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.5945513248443604,
+      "thread_name": "ThreadPoolExecutor-2_7"
+    },
+    {
+      "page_number": 8,
+      "success": false,
+      "error": "('Connection aborted.', ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None))",
+      "processing_time": 1.5778422355651855,
+      "thread_name": "ThreadPoolExecutor-2_8"
+    }
+  ]
+}

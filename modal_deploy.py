@@ -245,7 +245,7 @@ model = vLLMModel()
 
 
 
-def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True):
+def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True, bbox=None):
     """Synchronous OCR processing logic"""
     try:
         import base64
@@ -259,6 +259,18 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
         
         if not image_data:
             raise ValueError("No image data provided")
+        
+        # Validate prompt mode
+        valid_prompt_modes = list(dict_promptmode_to_prompt.keys())
+        if prompt_mode not in valid_prompt_modes:
+            raise ValueError(f"Invalid prompt_mode '{prompt_mode}'. Valid options: {valid_prompt_modes}")
+        
+        # Validate grounding OCR requirements
+        if prompt_mode == "prompt_grounding_ocr" and not bbox:
+            raise ValueError("Grounding OCR requires 'bbox' parameter with format [x1, y1, x2, y2]")
+        
+        if bbox and prompt_mode != "prompt_grounding_ocr":
+            raise ValueError("'bbox' parameter is only valid with 'prompt_grounding_ocr' mode")
         
         # Process image based on input format
         if from_base64:
@@ -276,10 +288,13 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
                 raise ValueError(f"Invalid image bytes: {e}")
         
         # Get the appropriate prompt
-        prompt = dict_promptmode_to_prompt.get(
-            prompt_mode, 
-            dict_promptmode_to_prompt["prompt_layout_all_en"]
-        )
+        prompt = dict_promptmode_to_prompt[prompt_mode]
+        
+        # Handle grounding OCR with bounding box
+        if prompt_mode == "prompt_grounding_ocr" and bbox:
+            if not isinstance(bbox, list) or len(bbox) != 4:
+                raise ValueError("bbox must be a list of 4 numbers [x1, y1, x2, y2]")
+            prompt += str(bbox)
         
         # Convert image to the format expected by the model
         image_b64 = PILimage_to_base64(pil_image)
@@ -296,7 +311,8 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
         return {
             "success": True,
             "result": result,
-            "prompt_mode": prompt_mode
+            "prompt_mode": prompt_mode,
+            "bbox": bbox if bbox else None
         }
         
     except Exception as e:
@@ -308,24 +324,78 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
 def generate(request_data: dict):
     """
     Generate OCR results from base64 image data.
+    Supports both single and batch processing with multiple prompt modes.
     
-    Expected format:
+    Single image format:
     {
         "image": "base64_encoded_image",
+        "prompt_mode": "prompt_layout_all_en",
+        "bbox": [x1, y1, x2, y2],  // Optional, only for grounding OCR
+        "max_tokens": 1500,
+        "temperature": 0.1,
+        "top_p": 0.9
+    }
+    
+    Batch processing format:
+    {
+        "images": ["base64_encoded_image1", "base64_encoded_image2", ...],
         "prompt_mode": "prompt_layout_all_en",
         "max_tokens": 1500,
         "temperature": 0.1,
         "top_p": 0.9
     }
+    
+    Available prompt_mode options:
+    - "prompt_layout_all_en": Full layout detection + text extraction (JSON format)
+    - "prompt_layout_only_en": Layout detection only, no text content
+    - "prompt_ocr": Simple text extraction without layout information
+    - "prompt_grounding_ocr": Extract text from specific bounding box (requires bbox parameter)
     """
-    return _process_ocr_request(
-        image_data=request_data.get("image"),
-        prompt_mode=request_data.get("prompt_mode", "prompt_layout_all_en"),
-        max_tokens=request_data.get("max_tokens", 1500),
-        temperature=request_data.get("temperature", 0.1),
-        top_p=request_data.get("top_p", 0.9),
-        from_base64=True
-    )
+    # Check if this is a batch request
+    if "images" in request_data:
+        images = request_data.get("images", [])
+        if not images:
+            return {"success": False, "error": "No images provided"}
+        
+        prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
+        max_tokens = request_data.get("max_tokens", 1500)
+        temperature = request_data.get("temperature", 0.1)
+        top_p = request_data.get("top_p", 0.9)
+        bbox = request_data.get("bbox")  # For grounding OCR in batch
+        
+        results = []
+        for i, image_data in enumerate(images):
+            result = _process_ocr_request(
+                image_data=image_data,
+                prompt_mode=prompt_mode,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                top_p=top_p,
+                from_base64=True,
+                bbox=bbox
+            )
+            # Add page number to result
+            if result.get("success"):
+                result["page_number"] = i
+            results.append(result)
+        
+        return {
+            "success": True,
+            "total_pages": len(images),
+            "results": results
+        }
+    
+    # Single image processing
+    else:
+        return _process_ocr_request(
+            image_data=request_data.get("image"),
+            prompt_mode=request_data.get("prompt_mode", "prompt_layout_all_en"),
+            max_tokens=request_data.get("max_tokens", 1500),
+            temperature=request_data.get("temperature", 0.1),
+            top_p=request_data.get("top_p", 0.9),
+            from_base64=True,
+            bbox=request_data.get("bbox")
+        )
 
 
 

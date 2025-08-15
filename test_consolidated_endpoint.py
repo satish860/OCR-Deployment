@@ -41,10 +41,11 @@ def load_test_image():
 def test_health_endpoint():
     """Test the health endpoint"""
     print("\n=== Testing Health Endpoint ===")
+    print("(This may take several minutes to warm up the container...)")
     
     try:
         start_time = time.time()
-        response = requests.get(HEALTH_URL, timeout=30)
+        response = requests.get(HEALTH_URL, timeout=600)  # 10 minutes for container startup
         response_time = time.time() - start_time
         
         print(f"Status Code: {response.status_code}")
@@ -53,6 +54,7 @@ def test_health_endpoint():
         
         if response.status_code == 200:
             print("Health check PASSED")
+            print(f"Container is now warmed up after {response_time:.2f}s")
             return True
         else:
             print("Health check FAILED")
@@ -60,19 +62,24 @@ def test_health_endpoint():
             
     except Exception as e:
         print(f"Health check ERROR: {e}")
+        print("Note: Health check timeout suggests container may be cold starting")
         return False
 
-def test_single_page_ocr(image_b64, test_name="Single Page OCR"):
-    """Test single page OCR"""
+def test_single_page_ocr(image_b64, test_name="Single Page OCR", prompt_mode="prompt_layout_all_en", bbox=None):
+    """Test single page OCR with different prompt modes"""
     print(f"\n=== Testing {test_name} ===")
     
     payload = {
         "image": image_b64,
-        "prompt_mode": "prompt_layout_all_en",
+        "prompt_mode": prompt_mode,
         "max_tokens": 1500,
         "temperature": 0.1,
         "top_p": 0.9
     }
+    
+    # Add bbox for grounding OCR
+    if bbox:
+        payload["bbox"] = bbox
     
     try:
         start_time = time.time()
@@ -86,6 +93,9 @@ def test_single_page_ocr(image_b64, test_name="Single Page OCR"):
         
         print(f"Status Code: {response.status_code}")
         print(f"Response Time: {response_time:.2f}s")
+        print(f"Prompt Mode: {prompt_mode}")
+        if bbox:
+            print(f"Bounding Box: {bbox}")
         
         if response.status_code == 200:
             result = response.json()
@@ -107,6 +117,46 @@ def test_single_page_ocr(image_b64, test_name="Single Page OCR"):
         print(f"{test_name} ERROR: {e}")
         return False, 0
 
+def test_invalid_prompt_mode(image_b64):
+    """Test invalid prompt mode handling"""
+    print(f"\n=== Testing Invalid Prompt Mode ===")
+    
+    payload = {
+        "image": image_b64,
+        "prompt_mode": "invalid_mode",
+        "max_tokens": 100,
+        "temperature": 0.1
+    }
+    
+    try:
+        start_time = time.time()
+        response = requests.post(
+            GENERATE_URL, 
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=60
+        )
+        response_time = time.time() - start_time
+        
+        print(f"Status Code: {response.status_code}")
+        print(f"Response Time: {response_time:.2f}s")
+        
+        if response.status_code == 200:
+            result = response.json()
+            if not result.get('success') and 'Invalid prompt_mode' in result.get('error', ''):
+                print("Invalid prompt mode validation PASSED")
+                return True
+            else:
+                print(f"Unexpected success: {result}")
+                return False
+        else:
+            print(f"HTTP Error: {response.text}")
+            return False
+            
+    except Exception as e:
+        print(f"Test ERROR: {e}")
+        return False
+
 def main():
     """Run all tests"""
     print("Starting Modal Endpoint Tests")
@@ -125,28 +175,54 @@ def main():
     image_b64 = load_test_image()
     print(f"Image base64 length: {len(image_b64)}")
     
-    # Test 2: Cold Start OCR (first request)
-    print("\nWaiting 2 minutes for cold start simulation...")
-    time.sleep(120)  # Wait to ensure cold start
+    # Test 2: Test all prompt modes
+    prompt_modes = [
+        ("prompt_layout_all_en", "Full Layout + Text", None),
+        ("prompt_layout_only_en", "Layout Only", None),
+        ("prompt_ocr", "Simple OCR", None),
+        ("prompt_grounding_ocr", "Grounding OCR", [100, 100, 500, 400])  # Example bbox
+    ]
     
-    success_cold, time_cold = test_single_page_ocr(image_b64, "Cold Start OCR")
+    print("\n=== Testing Different Prompt Modes ===")
+    test_times = []
     
-    if success_cold:
-        # Test 3: Warm Start OCR (immediate follow-up request)
-        print("\nRunning warm start test immediately...")
-        success_warm, time_warm = test_single_page_ocr(image_b64, "Warm Start OCR")
+    for prompt_mode, description, bbox in prompt_modes:
+        success, response_time = test_single_page_ocr(
+            image_b64, 
+            f"{description} ({prompt_mode})", 
+            prompt_mode, 
+            bbox
+        )
+        test_times.append((description, response_time, success))
+        if not success:
+            print(f"FAILED: {description}")
+        time.sleep(1)  # Brief pause between tests
+    
+    # Test 3: Test invalid prompt mode
+    test_invalid_prompt_mode(image_b64)
+    
+    # Test 4: Since health endpoint warmed up the container, test warm vs warm
+    print("\n=== Performance Testing (Warm Container) ===")
+    
+    success_1, time_1 = test_single_page_ocr(image_b64, "First Warm Request")
+    
+    if success_1:
+        success_2, time_2 = test_single_page_ocr(image_b64, "Second Warm Request")
         
-        if success_warm:
-            print(f"\nPerformance Comparison:")
-            print(f"Cold Start Time: {time_cold:.2f}s")
-            print(f"Warm Start Time: {time_warm:.2f}s")
-            print(f"Speedup: {time_cold/time_warm:.1f}x faster")
-            
-            print(f"\nAll tests PASSED!")
-        else:
-            print(f"\nWarm start test failed")
-    else:
-        print(f"\nCold start test failed, skipping warm start")
+        if success_2:
+            print(f"\nWarm Container Performance:")
+            print(f"First Request: {time_1:.2f}s")
+            print(f"Second Request: {time_2:.2f}s")
+            print(f"Consistency: {abs(time_1-time_2):.2f}s difference")
+    
+    # Summary of all test times
+    print(f"\n=== Test Summary ===")
+    print("Prompt Mode Performance:")
+    for description, response_time, success in test_times:
+        status = "PASS" if success else "FAIL"
+        print(f"  {description:<20}: {response_time:>6.2f}s [{status}]")
+        
+    print(f"\nAll prompt mode tests completed!")
 
 if __name__ == "__main__":
     main()

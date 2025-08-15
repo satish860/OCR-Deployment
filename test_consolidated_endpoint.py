@@ -13,7 +13,7 @@ def load_test_image():
     import fitz  # PyMuPDF
     
     # Use the specific PDF file and extract first page as image
-    pdf_path = Path("input/2e1b63c5-761d-48b9-b3b5-f263c3db4e30.pdf")
+    pdf_path = Path("input/44abcd07-58ab-4957-a66b-c03e82e11e6f.pdf")
     
     if pdf_path.exists():
         print(f"Using test PDF: {pdf_path}")

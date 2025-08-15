@@ -64,6 +64,9 @@ class vLLMModel:
         sys.path.insert(0, "/workspace")
         sys.path.insert(0, "/workspace/weights/DotsOCR")
         
+        # Performance optimization: enable fast image processor
+        os.environ["TRANSFORMERS_USE_FAST_PROCESSOR"] = "1"
+        
         print("🔧 DEBUG: Environment paths set")
         print(f"🔧 DEBUG: MODEL_DIR = {MODEL_DIR}")
         
@@ -114,6 +117,8 @@ class vLLMModel:
                 tensor_parallel_size=1,
                 gpu_memory_utilization=0.95,  # Match original script
                 disable_custom_all_reduce=True,
+                # Performance optimization: use fast image processor
+                tokenizer_mode="auto",
                 # Let vLLM auto-detect max_model_len from config (131072)
                 # Note: vLLM should auto-detect chat template from model's chat_template.json
             )

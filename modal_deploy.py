@@ -235,6 +235,93 @@ class vLLMModel:
             return f"Error: {str(e)}"
 
     @modal.method()
+    def generate_batch(
+        self,
+        images_b64: list,
+        prompts: list,
+        max_tokens: int = 2048,
+        temperature: float = 0.1,
+        top_p: float = 0.9,
+    ):
+        """Generate OCR results for multiple images in a single vLLM batch call"""
+        print(f"DEBUG: Starting batch generate with {len(images_b64)} images")
+        
+        if len(images_b64) != len(prompts):
+            return f"Error: Number of images ({len(images_b64)}) must match number of prompts ({len(prompts)})"
+        
+        from vllm import SamplingParams
+        
+        sampling_params = SamplingParams(
+            temperature=temperature,
+            top_p=top_p,
+            max_tokens=max_tokens,
+        )
+        
+        try:
+            if not hasattr(self, 'llm') or self.llm is None:
+                return f"Error: Model not properly initialized"
+            
+            # Prepare all prompts and images for batch processing
+            batch_prompts = []
+            pil_images = []
+            
+            for i, (image_b64, prompt) in enumerate(zip(images_b64, prompts)):
+                # Format the input as DotsOCR expects
+                prompt_text = f"<|img|><|imgpad|><|endofimg|>{prompt}"
+                
+                # Convert base64 back to PIL image for vLLM generate API
+                import base64
+                import io
+                from PIL import Image
+                
+                # Extract base64 data from data URL
+                if image_b64.startswith("data:image/"):
+                    base64_data = image_b64.split(",")[1]
+                else:
+                    base64_data = image_b64
+                    
+                image_bytes = base64.b64decode(base64_data)
+                pil_image = Image.open(io.BytesIO(image_bytes))
+                
+                # Add to batch
+                batch_prompts.append({
+                    "prompt": prompt_text,
+                    "multi_modal_data": {"image": pil_image}
+                })
+                pil_images.append(pil_image)
+                print(f"DEBUG: Prepared image {i} for batch processing")
+            
+            print(f"DEBUG: About to call batch vLLM generate with {len(batch_prompts)} prompts")
+            
+            # Single batch call to vLLM - this is where the magic happens!
+            outputs = self.llm.generate(
+                prompts=batch_prompts,
+                sampling_params=sampling_params,
+                use_tqdm=False
+            )
+            
+            print(f"DEBUG: Batch generation completed, got {len(outputs)} outputs")
+            
+            # Extract results
+            results = []
+            for i, output in enumerate(outputs):
+                if output.outputs and len(output.outputs) > 0:
+                    result = output.outputs[0].text
+                    results.append(result)
+                    print(f"DEBUG: Extracted result {i}, length: {len(result)}")
+                else:
+                    results.append("")
+                    print(f"DEBUG: No output for image {i}")
+            
+            return results
+                
+        except Exception as e:
+            print(f"ERROR: Batch generation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Error: {str(e)}"
+
+    @modal.method()
     def health_check(self):
         """Basic health check"""
         try:
@@ -250,8 +337,8 @@ model = vLLMModel()
 
 
 
-def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True, bbox=None):
-    """Synchronous OCR processing logic"""
+def _process_ocr_batch(images_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True, bbox=None):
+    """True batch OCR processing using vLLM's batch capabilities"""
     try:
         import base64
         import io
@@ -262,8 +349,8 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
         from dots_ocr.utils import dict_promptmode_to_prompt
         from dots_ocr.utils.image_utils import PILimage_to_base64
         
-        if not image_data:
-            raise ValueError("No image data provided")
+        if not images_data or len(images_data) == 0:
+            raise ValueError("No images data provided")
         
         # Validate prompt mode
         valid_prompt_modes = list(dict_promptmode_to_prompt.keys())
@@ -277,51 +364,113 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
         if bbox and prompt_mode != "prompt_grounding_ocr":
             raise ValueError("'bbox' parameter is only valid with 'prompt_grounding_ocr' mode")
         
-        # Process image based on input format
-        if from_base64:
-            # Decode base64 image
-            try:
-                image_bytes = base64.b64decode(image_data)
-                pil_image = Image.open(io.BytesIO(image_bytes))
-            except Exception as e:
-                raise ValueError(f"Invalid base64 image data: {e}")
-        else:
-            # Direct bytes input
-            try:
-                pil_image = Image.open(io.BytesIO(image_data))
-            except Exception as e:
-                raise ValueError(f"Invalid image bytes: {e}")
-        
         # Get the appropriate prompt
-        prompt = dict_promptmode_to_prompt[prompt_mode]
+        base_prompt = dict_promptmode_to_prompt[prompt_mode]
         
         # Handle grounding OCR with bounding box
         if prompt_mode == "prompt_grounding_ocr" and bbox:
             if not isinstance(bbox, list) or len(bbox) != 4:
                 raise ValueError("bbox must be a list of 4 numbers [x1, y1, x2, y2]")
-            prompt += str(bbox)
+            base_prompt += str(bbox)
         
-        # Convert image to the format expected by the model
-        image_b64 = PILimage_to_base64(pil_image)
+        # Process all images and prepare for batch call
+        images_b64 = []
+        prompts = []
         
-        # Call model directly
-        result = model.generate.remote(
-            image_b64=image_b64,
-            prompt=prompt,
+        for i, image_data in enumerate(images_data):
+            if not image_data:
+                raise ValueError(f"No image data provided for image {i}")
+            
+            # Process image based on input format
+            if from_base64:
+                # Decode base64 image
+                try:
+                    image_bytes = base64.b64decode(image_data)
+                    pil_image = Image.open(io.BytesIO(image_bytes))
+                except Exception as e:
+                    raise ValueError(f"Invalid base64 image data for image {i}: {e}")
+            else:
+                # Direct bytes input
+                try:
+                    pil_image = Image.open(io.BytesIO(image_data))
+                except Exception as e:
+                    raise ValueError(f"Invalid image bytes for image {i}: {e}")
+            
+            # Convert image to the format expected by the model
+            image_b64 = PILimage_to_base64(pil_image)
+            images_b64.append(image_b64)
+            prompts.append(base_prompt)
+        
+        print(f"DEBUG: About to call batch processing with {len(images_b64)} images")
+        
+        # Call the new batch processing method - THIS IS THE KEY OPTIMIZATION!
+        batch_results = model.generate_batch.remote(
+            images_b64=images_b64,
+            prompts=prompts,
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
         )
         
-        return {
-            "success": True,
-            "result": result,
-            "prompt_mode": prompt_mode,
-            "bbox": bbox if bbox else None
-        }
+        # Format results
+        results = []
+        for i, result in enumerate(batch_results):
+            if isinstance(result, str) and result.startswith("Error:"):
+                results.append({
+                    "success": False,
+                    "error": result,
+                    "page_number": i,
+                    "prompt_mode": prompt_mode,
+                    "bbox": bbox if bbox else None
+                })
+            else:
+                results.append({
+                    "success": True,
+                    "result": result,
+                    "page_number": i,
+                    "prompt_mode": prompt_mode,
+                    "bbox": bbox if bbox else None
+                })
+        
+        return results
         
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        # Return error for all images
+        error_results = []
+        num_images = len(images_data) if images_data else 1
+        for i in range(num_images):
+            error_results.append({
+                "success": False,
+                "error": str(e),
+                "page_number": i,
+                "prompt_mode": prompt_mode,
+                "bbox": bbox if bbox else None
+            })
+        return error_results
+
+
+def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True, bbox=None):
+    """Single image OCR processing (legacy method for compatibility)"""
+    # Use batch processing with a single image for consistency
+    batch_results = _process_ocr_batch(
+        images_data=[image_data],
+        prompt_mode=prompt_mode,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        top_p=top_p,
+        from_base64=from_base64,
+        bbox=bbox
+    )
+    
+    # Return the single result
+    if batch_results and len(batch_results) > 0:
+        result = batch_results[0]
+        # Remove page_number for single image compatibility
+        if "page_number" in result:
+            del result["page_number"]
+        return result
+    else:
+        return {"success": False, "error": "No result returned from batch processing"}
 
 
 @app.function(image=vllm_image)
@@ -368,25 +517,23 @@ def generate(request_data: dict):
         top_p = request_data.get("top_p", 0.9)
         bbox = request_data.get("bbox")  # For grounding OCR in batch
         
-        results = []
-        for i, image_data in enumerate(images):
-            result = _process_ocr_request(
-                image_data=image_data,
-                prompt_mode=prompt_mode,
-                max_tokens=max_tokens,
-                temperature=temperature,
-                top_p=top_p,
-                from_base64=True,
-                bbox=bbox
-            )
-            # Add page number to result
-            if result.get("success"):
-                result["page_number"] = i
-            results.append(result)
+        print(f"DEBUG: Processing batch of {len(images)} images with TRUE batch processing")
+        
+        # Use TRUE batch processing instead of sequential processing
+        results = _process_ocr_batch(
+            images_data=images,
+            prompt_mode=prompt_mode,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
+            from_base64=True,
+            bbox=bbox
+        )
         
         return {
             "success": True,
             "total_pages": len(images),
+            "processing_mode": "true_vllm_batch",
             "results": results
         }
     

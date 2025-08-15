@@ -46,6 +46,7 @@ GPU_CONFIG = "A100-40GB"
     volumes={"/cache": vllm_volume},
     timeout=60 * 20,  # 20 minutes
     scaledown_window=60 * 5,  # 5 minutes
+    experimental_options={"enable_gpu_snapshot": True},
 )
 @modal.concurrent(max_inputs=10)
 class vLLMModel:
@@ -112,7 +113,6 @@ class vLLMModel:
                 trust_remote_code=True,
                 tensor_parallel_size=1,
                 gpu_memory_utilization=0.95,  # Match original script
-                enforce_eager=True,  # Disable CUDA graph for easier debugging
                 disable_custom_all_reduce=True,
                 # Let vLLM auto-detect max_model_len from config (131072)
                 # Note: vLLM should auto-detect chat template from model's chat_template.json
@@ -243,21 +243,8 @@ class vLLMModel:
 model = vLLMModel()
 
 
-@app.function(image=vllm_image)
-@modal.fastapi_endpoint(method="POST", label="dotsocr-v2")
-def generate(request_data: dict):
-    """
-    Generate OCR results from image data.
-    
-    Expected format:
-    {
-        "image": "base64_encoded_image",
-        "prompt_mode": "prompt_layout_all_en",
-        "max_tokens": 2048,
-        "temperature": 0.1,
-        "top_p": 0.9
-    }
-    """
+def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True):
+    """Common OCR processing logic"""
     import base64
     import io
     from PIL import Image
@@ -268,22 +255,23 @@ def generate(request_data: dict):
     from dots_ocr.utils.image_utils import PILimage_to_base64
     
     try:
-        # Extract parameters
-        image_data = request_data.get("image")
-        prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
-        max_tokens = request_data.get("max_tokens", 2048)
-        temperature = request_data.get("temperature", 0.1)
-        top_p = request_data.get("top_p", 0.9)
-        
         if not image_data:
             return {"error": "No image data provided"}
         
-        # Decode and process image
-        try:
-            image_bytes = base64.b64decode(image_data)
-            pil_image = Image.open(io.BytesIO(image_bytes))
-        except Exception as e:
-            return {"error": f"Invalid image data: {e}"}
+        # Process image based on input format
+        if from_base64:
+            # Decode base64 image
+            try:
+                image_bytes = base64.b64decode(image_data)
+                pil_image = Image.open(io.BytesIO(image_bytes))
+            except Exception as e:
+                return {"error": f"Invalid base64 image data: {e}"}
+        else:
+            # Direct bytes input
+            try:
+                pil_image = Image.open(io.BytesIO(image_data))
+            except Exception as e:
+                return {"error": f"Invalid image bytes: {e}"}
         
         # Get the appropriate prompt
         prompt = dict_promptmode_to_prompt.get(
@@ -311,6 +299,33 @@ def generate(request_data: dict):
         
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+@app.function(image=vllm_image)
+@modal.fastapi_endpoint(method="POST", label="dotsocr-v2")
+def generate(request_data: dict):
+    """
+    Generate OCR results from base64 image data.
+    
+    Expected format:
+    {
+        "image": "base64_encoded_image",
+        "prompt_mode": "prompt_layout_all_en",
+        "max_tokens": 1500,
+        "temperature": 0.1,
+        "top_p": 0.9
+    }
+    """
+    return _process_ocr_request(
+        image_data=request_data.get("image"),
+        prompt_mode=request_data.get("prompt_mode", "prompt_layout_all_en"),
+        max_tokens=request_data.get("max_tokens", 1500),
+        temperature=request_data.get("temperature", 0.1),
+        top_p=request_data.get("top_p", 0.9),
+        from_base64=True
+    )
+
+
 
 
 @app.function(image=vllm_image)

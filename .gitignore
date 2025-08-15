@@ -3,6 +3,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+
+
 # C extensions
 *.so
 
@@ -76,3 +78,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# OCR files
+dots.ocr

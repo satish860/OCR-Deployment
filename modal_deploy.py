@@ -243,82 +243,55 @@ class vLLMModel:
 model = vLLMModel()
 
 
-def _preprocess_image(image_data, prompt_mode="prompt_layout_all_en", from_base64=True):
-    """Fast preprocessing of image data - synchronous, prepares data for parallel OCR"""
-    import base64
-    import io
-    from PIL import Image
-    import sys
-    
-    sys.path.insert(0, "/workspace")
-    from dots_ocr.utils import dict_promptmode_to_prompt
-    from dots_ocr.utils.image_utils import PILimage_to_base64
-    
-    if not image_data:
-        raise ValueError("No image data provided")
-    
-    # Process image based on input format
-    if from_base64:
-        # Decode base64 image
-        try:
-            image_bytes = base64.b64decode(image_data)
-            pil_image = Image.open(io.BytesIO(image_bytes))
-        except Exception as e:
-            raise ValueError(f"Invalid base64 image data: {e}")
-    else:
-        # Direct bytes input
-        try:
-            pil_image = Image.open(io.BytesIO(image_data))
-        except Exception as e:
-            raise ValueError(f"Invalid image bytes: {e}")
-    
-    # Get the appropriate prompt
-    prompt = dict_promptmode_to_prompt.get(
-        prompt_mode, 
-        dict_promptmode_to_prompt["prompt_layout_all_en"]
-    )
-    
-    # Convert image to the format expected by the model
-    image_b64 = PILimage_to_base64(pil_image)
-    
-    return {
-        "image_b64": image_b64,
-        "prompt": prompt
-    }
-
-
-def _process_ocr_request_async(preprocessed_data, max_tokens=1500, temperature=0.1, top_p=0.9):
-    """Pure async OCR call - returns Modal future IMMEDIATELY (non-blocking)"""
-    # This should be instantaneous - no image processing, just returns future
-    return model.generate.remote(
-        image_b64=preprocessed_data["image_b64"],
-        prompt=preprocessed_data["prompt"],
-        max_tokens=max_tokens,
-        temperature=temperature,
-        top_p=top_p,
-    )
 
 
 def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tokens=1500, temperature=0.1, top_p=0.9, from_base64=True):
-    """Synchronous OCR processing logic (existing function)"""
+    """Synchronous OCR processing logic"""
     try:
-        # Preprocess the image first
-        preprocessed_data = _preprocess_image(
-            image_data=image_data,
-            prompt_mode=prompt_mode,
-            from_base64=from_base64
+        import base64
+        import io
+        from PIL import Image
+        import sys
+        
+        sys.path.insert(0, "/workspace")
+        from dots_ocr.utils import dict_promptmode_to_prompt
+        from dots_ocr.utils.image_utils import PILimage_to_base64
+        
+        if not image_data:
+            raise ValueError("No image data provided")
+        
+        # Process image based on input format
+        if from_base64:
+            # Decode base64 image
+            try:
+                image_bytes = base64.b64decode(image_data)
+                pil_image = Image.open(io.BytesIO(image_bytes))
+            except Exception as e:
+                raise ValueError(f"Invalid base64 image data: {e}")
+        else:
+            # Direct bytes input
+            try:
+                pil_image = Image.open(io.BytesIO(image_data))
+            except Exception as e:
+                raise ValueError(f"Invalid image bytes: {e}")
+        
+        # Get the appropriate prompt
+        prompt = dict_promptmode_to_prompt.get(
+            prompt_mode, 
+            dict_promptmode_to_prompt["prompt_layout_all_en"]
         )
         
-        # Get the future and wait for result
-        future = _process_ocr_request_async(
-            preprocessed_data=preprocessed_data,
+        # Convert image to the format expected by the model
+        image_b64 = PILimage_to_base64(pil_image)
+        
+        # Call model directly
+        result = model.generate.remote(
+            image_b64=image_b64,
+            prompt=prompt,
             max_tokens=max_tokens,
             temperature=temperature,
-            top_p=top_p
+            top_p=top_p,
         )
-        
-        # Wait for completion and return formatted result
-        result = future  # Modal automatically waits for completion
         
         return {
             "success": True,
@@ -355,222 +328,8 @@ def generate(request_data: dict):
     )
 
 
-@app.function(image=vllm_image)
-@modal.fastapi_endpoint(method="POST", label="dotsocr-batch-v2")
-def generate_batch(request_data: dict):
-    """
-    Generate OCR results from multiple base64 images in batch.
-    
-    Expected format:
-    {
-        "images": ["base64_encoded_image1", "base64_encoded_image2", ...],
-        "prompt_mode": "prompt_layout_all_en",
-        "max_tokens": 1500,
-        "temperature": 0.1,
-        "top_p": 0.9
-    }
-    """
-    images = request_data.get("images", [])
-    if not images:
-        return {"success": False, "error": "No images provided"}
-    
-    prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
-    max_tokens = request_data.get("max_tokens", 1500)
-    temperature = request_data.get("temperature", 0.1)
-    top_p = request_data.get("top_p", 0.9)
-    
-    results = []
-    for i, image_data in enumerate(images):
-        result = _process_ocr_request(
-            image_data=image_data,
-            prompt_mode=prompt_mode,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            top_p=top_p,
-            from_base64=True
-        )
-        # Add page number to result
-        if result.get("success"):
-            result["page_number"] = i
-        results.append(result)
-    
-    return {
-        "success": True,
-        "total_pages": len(images),
-        "results": results
-    }
 
 
-@app.function(image=vllm_image)
-@modal.fastapi_endpoint(method="POST", label="dotsocr-batch-parallel-v2")
-async def generate_batch_parallel(request_data: dict):
-    """
-    Generate OCR results from multiple base64 images in PARALLEL.
-    
-    Expected format:
-    {
-        "images": ["base64_encoded_image1", "base64_encoded_image2", ...],
-        "prompt_mode": "prompt_layout_all_en",
-        "max_tokens": 1500,
-        "temperature": 0.1,
-        "top_p": 0.9
-    }
-    """
-    import time
-    
-    images = request_data.get("images", [])
-    if not images:
-        return {"success": False, "error": "No images provided"}
-    
-    prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
-    max_tokens = request_data.get("max_tokens", 1500)
-    temperature = request_data.get("temperature", 0.1)
-    top_p = request_data.get("top_p", 0.9)
-    
-    print(f"Starting TRUE parallel processing of {len(images)} images...")
-    start_time = time.time()
-    
-    # Step 1: Preprocess ALL images first (fast, sequential)
-    preprocess_start = time.time()
-    preprocessed_images = []
-    
-    for i, image_data in enumerate(images):
-        try:
-            preprocessed_data = _preprocess_image(
-                image_data=image_data,
-                prompt_mode=prompt_mode,
-                from_base64=True
-            )
-            preprocessed_images.append((i, preprocessed_data))
-            print(f"Preprocessed image {i}")
-        except Exception as e:
-            # Handle preprocessing errors
-            preprocessed_images.append((i, None))
-            print(f"Failed to preprocess image {i}: {e}")
-    
-    preprocess_time = time.time() - preprocess_start
-    print(f"Preprocessing completed in {preprocess_time:.2f}s")
-    
-    # Step 2: Launch ALL OCR tasks in parallel (truly non-blocking)
-    futures = []
-    launch_start = time.time()
-    
-    for i, preprocessed_data in preprocessed_images:
-        try:
-            if preprocessed_data is None:
-                # Preprocessing failed
-                futures.append((i, None))
-            else:
-                # This should be instantaneous - just returns Modal future
-                future = _process_ocr_request_async(
-                    preprocessed_data=preprocessed_data,
-                    max_tokens=max_tokens,
-                    temperature=temperature,
-                    top_p=top_p
-                )
-                futures.append((i, future))
-                print(f"Launched OCR task {i}")
-        except Exception as e:
-            # Handle launch errors
-            futures.append((i, None))
-            print(f"Failed to launch task {i}: {e}")
-    
-    launch_time = time.time() - launch_start
-    print(f"All {len(futures)} OCR tasks launched in {launch_time:.3f}s (should be ~0.001s)")
-    print(f"Now waiting for parallel execution to complete...")
-    
-    # Step 3: Collect all results using AsyncIO (TRUE PARALLEL COLLECTION)
-    results = []
-    collection_start = time.time()
-    
-    print(f"Waiting for all {len(futures)} tasks to complete in parallel...")
-    
-    # Prepare futures for async collection
-    valid_futures = []
-    future_to_index = {}
-    failed_tasks = {}
-    
-    for i, future in futures:
-        if future is None:
-            # Task failed to launch
-            failed_tasks[i] = {
-                "success": False,
-                "error": "Failed to launch OCR task",
-                "page_number": i
-            }
-        else:
-            valid_futures.append(future)
-            future_to_index[future] = i
-    
-    # Use asyncio.gather to wait for all remote calls concurrently
-    import asyncio
-    try:
-        if valid_futures:
-            print(f"Collecting {len(valid_futures)} results in parallel...")
-            # This waits for ALL futures concurrently, not sequentially!
-            ocr_results = await asyncio.gather(*valid_futures, return_exceptions=True)
-            
-            # Process results
-            for future, ocr_result in zip(valid_futures, ocr_results):
-                i = future_to_index[future]
-                if isinstance(ocr_result, Exception):
-                    result = {
-                        "success": False,
-                        "error": str(ocr_result),
-                        "page_number": i
-                    }
-                    print(f"Task {i} failed: {ocr_result}")
-                else:
-                    result = {
-                        "success": True,
-                        "result": ocr_result,
-                        "prompt_mode": prompt_mode,
-                        "page_number": i
-                    }
-                    print(f"Task {i} completed successfully")
-                results.append(result)
-        
-        # Add failed tasks
-        for failed_result in failed_tasks.values():
-            results.append(failed_result)
-            
-    except Exception as e:
-        print(f"AsyncIO gather failed: {e}")
-        # Fallback to sequential collection if asyncio fails
-        for i, future in futures:
-            try:
-                if future is None:
-                    result = {"success": False, "error": "Failed to launch OCR task", "page_number": i}
-                else:
-                    ocr_result = future
-                    result = {"success": True, "result": ocr_result, "prompt_mode": prompt_mode, "page_number": i}
-            except Exception as ex:
-                result = {"success": False, "error": str(ex), "page_number": i}
-            results.append(result)
-    
-    collection_time = time.time() - collection_start
-    total_time = time.time() - start_time
-    
-    print(f"Collection completed in {collection_time:.2f}s")
-    print(f"Total parallel processing time: {total_time:.2f}s")
-    print(f"Average time per page: {total_time/len(images):.2f}s")
-    
-    # Sort results by page number to maintain order
-    results.sort(key=lambda x: x.get("page_number", 0))
-    
-    return {
-        "success": True,
-        "total_pages": len(images),
-        "processing_mode": "true_parallel",
-        "timing": {
-            "preprocess_time": preprocess_time,
-            "launch_time": launch_time,
-            "collection_time": collection_time,
-            "total_time": total_time,
-            "avg_time_per_page": total_time / len(images)
-        },
-        "results": results
-    }
 
 
 @app.function(image=vllm_image)

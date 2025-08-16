@@ -24,6 +24,7 @@ benchmark = [
     "huggingface-hub>=0.16.0",
     "openai>=1.0.0",
     "beautifulsoup4>=4.12.0",
+    "tqdm>=4.65.0",
 ]
 
 # Windows-specific dependencies (install manually if needed)

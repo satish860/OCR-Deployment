@@ -11,6 +11,7 @@ dependencies = [
     "modal>=0.63.0",
     "datasets>=4.0.0",
     "pillow>=11.3.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -21,6 +22,8 @@ benchmark = [
     "matplotlib>=3.6.0",
     "seaborn>=0.12.0",
     "huggingface-hub>=0.16.0",
+    "openai>=1.0.0",
+    "beautifulsoup4>=4.12.0",
 ]
 
 # Windows-specific dependencies (install manually if needed)

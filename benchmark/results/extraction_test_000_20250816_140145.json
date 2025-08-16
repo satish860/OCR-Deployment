@@ -1,0 +1,225 @@
+{
+  "timestamp": "20250816_140145",
+  "example_id": "000",
+  "modal_url": "https://marker--dotsocr-v2.modal.run",
+  "prompt_mode": "prompt_ocr",
+  "metadata": {
+    "id": 0,
+    "metadata": "{\"format\":\"TABLE\",\"documentQuality\":\"PHOTO\"}",
+    "json_schema": "{\"type\":\"object\",\"properties\":{\"metal_rankings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"gold\":{\"type\":\"number\",\"description\":\"\"},\"total\":{\"type\":\"number\",\"description\":\"\"},\"bronze\":{\"type\":\"number\",\"description\":\"\"},\"nation\":{\"type\":\"string\",\"description\":\"Just the nation name, don't include abbr.\"},\"sliver\":{\"type\":\"number\",\"description\":\"\"},\"ranking\":{\"type\":\"number\",\"description\":\"\"}},\"description\":\"\"}}}}"
+  },
+  "ground_truth": {
+    "metal_rankings": [
+      {
+        "gold": 2,
+        "total": 3,
+        "bronze": 0,
+        "nation": "Australia",
+        "sliver": 1,
+        "ranking": 1
+      },
+      {
+        "gold": 1,
+        "total": 3,
+        "bronze": 1,
+        "nation": "Italy",
+        "sliver": 1,
+        "ranking": 2
+      },
+      {
+        "gold": 1,
+        "total": 2,
+        "bronze": 1,
+        "nation": "Germany",
+        "sliver": 0,
+        "ranking": 3
+      },
+      {
+        "gold": 1,
+        "total": 1,
+        "bronze": 0,
+        "nation": "Soviet Union",
+        "sliver": 0,
+        "ranking": 4
+      },
+      {
+        "gold": 0,
+        "total": 3,
+        "bronze": 1,
+        "nation": "Switzerland",
+        "sliver": 2,
+        "ranking": 5
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 0,
+        "nation": "United States",
+        "sliver": 1,
+        "ranking": 6
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 1,
+        "nation": "Great Britain",
+        "sliver": 0,
+        "ranking": 7
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 1,
+        "nation": "France",
+        "sliver": 0,
+        "ranking": 7
+      }
+    ]
+  },
+  "modal_ocr_result": " <table><thead><tr><th>Rank</th><th>Nation</th><th>Gold</th><th>Silver</th><th>Bronze</th><th>Total</th></tr></thead><tbody><tr><td>1</td><td>Australia (AUS)</td><td>2</td><td>1</td><td>0</td><td>3</td></tr><tr><td>2</td><td>Italy (ITA)</td><td>1</td><td>1</td><td>1</td><td>3</td></tr><tr><td>3</td><td>Germany (EUA)</td><td>1</td><td>0</td><td>1</td><td>2</td></tr><tr><td>4</td><td>Soviet Union (URS)</td><td>1</td><td>0</td><td>0</td><td>1</td></tr><tr><td>5</td><td>Switzerland (SUI)</td><td>0</td><td>2</td><td>1</td><td>3</td></tr><tr><td>6</td><td>United States (USA)</td><td>0</td><td>1</td><td>0</td><td>1</td></tr><tr><td rowspan=\"2\">7</td><td>Great Britain (GBR)</td><td>0</td><td>0</td><td>1</td><td>1</td></tr><tr><td>France (FRA)</td><td>0</td><td>0</td><td>1</td><td>1</td></tr></tbody></table>",
+  "extraction_results": {
+    "extraction_successful": true,
+    "extracted_data": {
+      "metal_rankings": [
+        {
+          "ranking": 1,
+          "nation": "Australia",
+          "gold": 2,
+          "sliver": 1,
+          "bronze": 0,
+          "total": 3
+        },
+        {
+          "ranking": 2,
+          "nation": "Italy",
+          "gold": 1,
+          "sliver": 1,
+          "bronze": 1,
+          "total": 3
+        },
+        {
+          "ranking": 3,
+          "nation": "Germany",
+          "gold": 1,
+          "sliver": 0,
+          "bronze": 1,
+          "total": 2
+        },
+        {
+          "ranking": 4,
+          "nation": "Soviet Union",
+          "gold": 1,
+          "sliver": 0,
+          "bronze": 0,
+          "total": 1
+        },
+        {
+          "ranking": 5,
+          "nation": "Switzerland",
+          "gold": 0,
+          "sliver": 2,
+          "bronze": 1,
+          "total": 3
+        },
+        {
+          "ranking": 6,
+          "nation": "United States",
+          "gold": 0,
+          "sliver": 1,
+          "bronze": 0,
+          "total": 1
+        },
+        {
+          "ranking": 7,
+          "nation": "Great Britain",
+          "gold": 0,
+          "sliver": 0,
+          "bronze": 1,
+          "total": 1
+        },
+        {
+          "ranking": 7,
+          "nation": "France",
+          "gold": 0,
+          "sliver": 0,
+          "bronze": 1,
+          "total": 1
+        }
+      ]
+    },
+    "extraction_metadata": {
+      "model_used": "gpt-4o",
+      "raw_response": "{\n  \"metal_rankings\": [\n    {\n      \"ranking\": 1,\n      \"nation\": \"Australia\",\n      \"gold\": 2,\n      \"sliver\": 1,\n      \"bronze\": 0,\n      \"total\": 3\n    },\n    {\n      \"ranking\": 2,\n      \"nation\": \"Italy\",\n      \"gold\": 1,\n      \"sliver\": 1,\n      \"bronze\": 1,\n      \"total\": 3\n    },\n    {\n      \"ranking\": 3,\n      \"nation\": \"Germany\",\n      \"gold\": 1,\n      \"sliver\": 0,\n      \"bronze\": 1,\n      \"total\": 2\n    },\n    {\n      \"ranking\": 4,\n      \"nation\": \"Soviet Union\",\n      \"gold\": 1,\n      \"sliver\": 0,\n      \"bronze\": 0,\n      \"total\": 1\n    },\n    {\n      \"ranking\": 5,\n      \"nation\": \"Switzerland\",\n      \"gold\": 0,\n      \"sliver\": 2,\n      \"bronze\": 1,\n      \"total\": 3\n    },\n    {\n      \"ranking\": 6,\n      \"nation\": \"United States\",\n      \"gold\": 0,\n      \"sliver\": 1,\n      \"bronze\": 0,\n      \"total\": 1\n    },\n    {\n      \"ranking\": 7,\n      \"nation\": \"Great Britain\",\n      \"gold\": 0,\n      \"sliver\": 0,\n      \"bronze\": 1,\n      \"total\": 1\n    },\n    {\n      \"ranking\": 7,\n      \"nation\": \"France\",\n      \"gold\": 0,\n      \"sliver\": 0,\n      \"bronze\": 1,\n      \"total\": 1\n    }\n  ]\n}"
+    },
+    "comparison_results": {
+      "accuracy_percentage": 100.0,
+      "total_fields": 49,
+      "matches": 49,
+      "mismatches": 0,
+      "missing_fields": 0,
+      "extra_fields": 0,
+      "detailed_comparison": {
+        "matches": {
+          "metal_rankings_length": 8,
+          "metal_rankings[0].bronze": 0,
+          "metal_rankings[0].total": 3,
+          "metal_rankings[0].nation": "Australia",
+          "metal_rankings[0].sliver": 1,
+          "metal_rankings[0].ranking": 1,
+          "metal_rankings[0].gold": 2,
+          "metal_rankings[1].bronze": 1,
+          "metal_rankings[1].total": 3,
+          "metal_rankings[1].nation": "Italy",
+          "metal_rankings[1].sliver": 1,
+          "metal_rankings[1].ranking": 2,
+          "metal_rankings[1].gold": 1,
+          "metal_rankings[2].bronze": 1,
+          "metal_rankings[2].total": 2,
+          "metal_rankings[2].nation": "Germany",
+          "metal_rankings[2].sliver": 0,
+          "metal_rankings[2].ranking": 3,
+          "metal_rankings[2].gold": 1,
+          "metal_rankings[3].bronze": 0,
+          "metal_rankings[3].total": 1,
+          "metal_rankings[3].nation": "Soviet Union",
+          "metal_rankings[3].sliver": 0,
+          "metal_rankings[3].ranking": 4,
+          "metal_rankings[3].gold": 1,
+          "metal_rankings[4].bronze": 1,
+          "metal_rankings[4].total": 3,
+          "metal_rankings[4].nation": "Switzerland",
+          "metal_rankings[4].sliver": 2,
+          "metal_rankings[4].ranking": 5,
+          "metal_rankings[4].gold": 0,
+          "metal_rankings[5].bronze": 0,
+          "metal_rankings[5].total": 1,
+          "metal_rankings[5].nation": "United States",
+          "metal_rankings[5].sliver": 1,
+          "metal_rankings[5].ranking": 6,
+          "metal_rankings[5].gold": 0,
+          "metal_rankings[6].bronze": 1,
+          "metal_rankings[6].total": 1,
+          "metal_rankings[6].nation": "Great Britain",
+          "metal_rankings[6].sliver": 0,
+          "metal_rankings[6].ranking": 7,
+          "metal_rankings[6].gold": 0,
+          "metal_rankings[7].bronze": 1,
+          "metal_rankings[7].total": 1,
+          "metal_rankings[7].nation": "France",
+          "metal_rankings[7].sliver": 0,
+          "metal_rankings[7].ranking": 7,
+          "metal_rankings[7].gold": 0
+        },
+        "mismatches": {},
+        "missing_fields": {},
+        "extra_fields": {}
+      },
+      "summary": {
+        "extraction_quality": "perfect",
+        "major_issues": 0,
+        "completeness": 100.0
+      }
+    },
+    "overall_success": true
+  }
+}

@@ -80,4 +80,4 @@ Thumbs.db
 *.log
 
 # OCR files
-dots.ocr
+dots.ocr.claude/

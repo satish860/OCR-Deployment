@@ -266,9 +266,15 @@ class vLLMModel:
             batch_prompts = []
             pil_images = []
             
-            for i, (image_b64, prompt) in enumerate(zip(images_b64, prompts)):
+            for i, (image_b64, prompt_mode) in enumerate(zip(images_b64, prompts)):
+                # Convert prompt_mode to actual prompt text using the loaded prompts
+                if hasattr(self, 'prompts') and prompt_mode in self.prompts:
+                    actual_prompt = self.prompts[prompt_mode]
+                else:
+                    actual_prompt = prompt_mode  # Fallback to using as-is
+                
                 # Format the input as DotsOCR expects
-                prompt_text = f"<|img|><|imgpad|><|endofimg|>{prompt}"
+                prompt_text = f"<|img|><|imgpad|><|endofimg|>{actual_prompt}"
                 
                 # Convert base64 back to PIL image for vLLM generate API
                 import base64
@@ -507,6 +513,33 @@ def generate(request_data: dict):
     - "prompt_ocr": Simple text extraction without layout information
     - "prompt_grounding_ocr": Extract text from specific bounding box (requires bbox parameter)
     """
+    
+    # Local prompt dictionary to avoid module dependencies
+    PROMPT_DICT = {
+        "prompt_layout_all_en": """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+
+1. Bbox format: [x1, y1, x2, y2]
+
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
+
+3. Text Extraction & Formatting Rules:
+    - Picture: For the 'Picture' category, the text field should be omitted.
+    - Formula: Format its text as LaTeX.
+    - Table: Format its text as HTML.
+    - All Others (Text, Title, etc.): Format their text as Markdown.
+
+4. Constraints:
+    - The output text must be the original text from the image, with no translation.
+    - All layout elements must be sorted according to human reading order.
+
+5. Final Output: The entire output must be a single JSON object.""",
+
+        "prompt_layout_only_en": """Please output the layout information from this PDF image, including each layout's bbox and its category. The bbox should be in the format [x1, y1, x2, y2]. The layout categories for the PDF document include ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title']. Do not output the corresponding text. The layout result should be in JSON format.""",
+
+        "prompt_ocr": """Extract the text content from this image.""",
+
+        "prompt_grounding_ocr": """Extract text from the given bounding box on the image (format: [x1, y1, x2, y2]).\nBounding Box:\n""",
+    }
     # Check if this is a batch request
     if "images" in request_data:
         images = request_data.get("images", [])
@@ -519,12 +552,20 @@ def generate(request_data: dict):
         top_p = request_data.get("top_p", 0.9)
         bbox = request_data.get("bbox")  # For grounding OCR in batch
         
+        # Convert prompt_mode to actual prompt text
+        actual_prompt = PROMPT_DICT.get(prompt_mode, prompt_mode)
+        
+        # Handle grounding OCR with bounding box
+        if prompt_mode == "prompt_grounding_ocr" and bbox:
+            if isinstance(bbox, list) and len(bbox) == 4:
+                actual_prompt += str(bbox)
+        
         print(f"DEBUG: Processing batch of {len(images)} images with TRUE batch processing")
         
         # Call GPU container directly for batch processing
         batch_results = model.generate_batch.remote(
             images_b64=images,
-            prompts=[prompt_mode] * len(images),
+            prompts=[actual_prompt] * len(images),
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
@@ -566,10 +607,18 @@ def generate(request_data: dict):
         top_p = request_data.get("top_p", 0.9)
         bbox = request_data.get("bbox")
         
+        # Convert prompt_mode to actual prompt text
+        actual_prompt = PROMPT_DICT.get(prompt_mode, prompt_mode)
+        
+        # Handle grounding OCR with bounding box
+        if prompt_mode == "prompt_grounding_ocr" and bbox:
+            if isinstance(bbox, list) and len(bbox) == 4:
+                actual_prompt += str(bbox)
+        
         # Call GPU container directly for single image
         batch_results = model.generate_batch.remote(
             images_b64=[image],
-            prompts=[prompt_mode],
+            prompts=[actual_prompt],
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,

@@ -32,10 +32,11 @@ dev = [
     "pytest>=7.0.0",
     "black>=22.0.0",
     "ruff>=0.1.0",
+    "pymupdf>=1.23.0",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["tests", "utils"]
+packages = ["src/ocr_deployment"]
 
 [build-system]
 requires = ["hatchling"]
@@ -48,3 +49,9 @@ target-version = "py39"
 [tool.black]
 line-length = 88
 target-version = ['py39']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]

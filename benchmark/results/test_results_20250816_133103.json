@@ -1,0 +1,78 @@
+{
+  "timestamp": "20250816_133103",
+  "metadata": {
+    "id": 0,
+    "metadata": "{\"format\":\"TABLE\",\"documentQuality\":\"PHOTO\"}",
+    "json_schema": "{\"type\":\"object\",\"properties\":{\"metal_rankings\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"gold\":{\"type\":\"number\",\"description\":\"\"},\"total\":{\"type\":\"number\",\"description\":\"\"},\"bronze\":{\"type\":\"number\",\"description\":\"\"},\"nation\":{\"type\":\"string\",\"description\":\"Just the nation name, don't include abbr.\"},\"sliver\":{\"type\":\"number\",\"description\":\"\"},\"ranking\":{\"type\":\"number\",\"description\":\"\"}},\"description\":\"\"}}}}"
+  },
+  "ground_truth": {
+    "metal_rankings": [
+      {
+        "gold": 2,
+        "total": 3,
+        "bronze": 0,
+        "nation": "Australia",
+        "sliver": 1,
+        "ranking": 1
+      },
+      {
+        "gold": 1,
+        "total": 3,
+        "bronze": 1,
+        "nation": "Italy",
+        "sliver": 1,
+        "ranking": 2
+      },
+      {
+        "gold": 1,
+        "total": 2,
+        "bronze": 1,
+        "nation": "Germany",
+        "sliver": 0,
+        "ranking": 3
+      },
+      {
+        "gold": 1,
+        "total": 1,
+        "bronze": 0,
+        "nation": "Soviet Union",
+        "sliver": 0,
+        "ranking": 4
+      },
+      {
+        "gold": 0,
+        "total": 3,
+        "bronze": 1,
+        "nation": "Switzerland",
+        "sliver": 2,
+        "ranking": 5
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 0,
+        "nation": "United States",
+        "sliver": 1,
+        "ranking": 6
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 1,
+        "nation": "Great Britain",
+        "sliver": 0,
+        "ranking": 7
+      },
+      {
+        "gold": 0,
+        "total": 1,
+        "bronze": 1,
+        "nation": "France",
+        "sliver": 0,
+        "ranking": 7
+      }
+    ]
+  },
+  "modal_result": " Do not include sub-tables or sub-tables within sub-tables.\n\n[{\"bbox\": [15, 15, 989, 405], \"category\": \"Table\", \"text\": \"<table><thead><tr><th>Rank</th><th>Nation</th><th>Gold</th><th>Silver</th><th>Bronze</th><th>Total</th></tr></thead><tbody><tr><td>1</td><td>Australia (AUS)</td><td>2</td><td>1</td><td>0</td><td>3</td></tr><tr><td>2</td><td>Italy (ITA)</td><td>1</td><td>1</td><td>1</td><td>3</td></tr><tr><td>3</td><td>Germany (EUA)</td><td>1</td><td>0</td><td>1</td><td>2</td></tr><tr><td>4</td><td>Soviet Union (URS)</td><td>1</td><td>0</td><td>0</td><td>1</td></tr><tr><td>5</td><td>Switzerland (SUI)</td><td>0</td><td>2</td><td>1</td><td>3</td></tr><tr><td>6</td><td>United States (USA)</td><td>0</td><td>1</td><td>0</td><td>1</td></tr><tr><td rowspan=\\\"2\\\">7</td><td>Great Britain (GBR)</td><td>0</td><td>0</td><td>1</td><td>1</td></tr><tr><td>France (FRA)</td><td>0</td><td>0</td><td>1</td><td>1</td></tr></tbody></table>\"}, {\"bbox\": [136, 69, 180, 93], \"category\": \"Picture\"}, {\"bbox\": [136, 110, 179, 136], \"category\": \"Picture\"}, {\"bbox\": [136, 153, 179, 178], \"category\": \"Picture\"}, {\"bbox\": [136, 195, 179, 220], \"category\": \"Picture\"}, {\"bbox\": [136, 236, 179, 266], \"category\": \"Picture\"}, {\"bbox\": [136, 284, 179, 309], \"category\": \"Picture\"}, {\"bbox\": [136, 327, 179, 352], \"category\": \"Picture\"}, {\"bbox\": [136, 369, 179, 394], \"category\": \"Picture\"}]",
+  "modal_result_parsed": null
+}

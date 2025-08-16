@@ -37,18 +37,19 @@ vllm_image = (
 )
 
 # GPU configuration
-GPU_CONFIG = "A100-40GB"
+GPU_CONFIG = "H100"
 
 
 @app.cls(
     gpu=GPU_CONFIG,
     image=vllm_image,
     volumes={"/cache": vllm_volume},
-    timeout=60 * 20,  # 20 minutes
-    scaledown_window=60 * 5,  # 5 minutes
+    timeout=60 * 60,  # 60 minutes - handle concurrent load
+    scaledown_window=60 * 30,  # 30 minutes - keep containers warm longer
+    min_containers=1,  # Keep at least 1 container always running
     experimental_options={"enable_gpu_snapshot": True},
 )
-@modal.concurrent(max_inputs=10)
+@modal.concurrent(max_inputs=1)
 class vLLMModel:
     @modal.enter()
     def load_model(self):
@@ -319,7 +320,8 @@ class vLLMModel:
             print(f"ERROR: Batch generation failed: {e}")
             import traceback
             traceback.print_exc()
-            return f"Error: {str(e)}"
+            # Return a list of error messages, one per image
+            return [f"Error: {str(e)}"] * len(images_b64)
 
     @modal.method()
     def health_check(self):
@@ -473,7 +475,7 @@ def _process_ocr_request(image_data, prompt_mode="prompt_layout_all_en", max_tok
         return {"success": False, "error": "No result returned from batch processing"}
 
 
-@app.function(image=vllm_image)
+@app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]", "Pillow"))
 @modal.fastapi_endpoint(method="POST", label="dotsocr-v2")
 def generate(request_data: dict):
     """
@@ -519,16 +521,34 @@ def generate(request_data: dict):
         
         print(f"DEBUG: Processing batch of {len(images)} images with TRUE batch processing")
         
-        # Use TRUE batch processing instead of sequential processing
-        results = _process_ocr_batch(
-            images_data=images,
-            prompt_mode=prompt_mode,
+        # Call GPU container directly for batch processing
+        batch_results = model.generate_batch.remote(
+            images_b64=images,
+            prompts=[prompt_mode] * len(images),
             max_tokens=max_tokens,
             temperature=temperature,
             top_p=top_p,
-            from_base64=True,
-            bbox=bbox
         )
+        
+        # Format results
+        results = []
+        for i, result in enumerate(batch_results):
+            if isinstance(result, str) and result.startswith("Error:"):
+                results.append({
+                    "success": False,
+                    "error": result,
+                    "page_number": i,
+                    "prompt_mode": prompt_mode,
+                    "bbox": bbox if bbox else None
+                })
+            else:
+                results.append({
+                    "success": True,
+                    "result": result,
+                    "page_number": i,
+                    "prompt_mode": prompt_mode,
+                    "bbox": bbox if bbox else None
+                })
         
         return {
             "success": True,
@@ -539,22 +559,38 @@ def generate(request_data: dict):
     
     # Single image processing
     else:
-        return _process_ocr_request(
-            image_data=request_data.get("image"),
-            prompt_mode=request_data.get("prompt_mode", "prompt_layout_all_en"),
-            max_tokens=request_data.get("max_tokens", 1500),
-            temperature=request_data.get("temperature", 0.1),
-            top_p=request_data.get("top_p", 0.9),
-            from_base64=True,
-            bbox=request_data.get("bbox")
+        image = request_data.get("image")
+        prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
+        max_tokens = request_data.get("max_tokens", 1500)
+        temperature = request_data.get("temperature", 0.1)
+        top_p = request_data.get("top_p", 0.9)
+        bbox = request_data.get("bbox")
+        
+        # Call GPU container directly for single image
+        batch_results = model.generate_batch.remote(
+            images_b64=[image],
+            prompts=[prompt_mode],
+            max_tokens=max_tokens,
+            temperature=temperature,
+            top_p=top_p,
         )
+        
+        # Return single result
+        if batch_results and len(batch_results) > 0:
+            result = batch_results[0]
+            if isinstance(result, str) and result.startswith("Error:"):
+                return {"success": False, "error": result, "prompt_mode": prompt_mode, "bbox": bbox}
+            else:
+                return {"success": True, "result": result, "prompt_mode": prompt_mode, "bbox": bbox}
+        else:
+            return {"success": False, "error": "No result returned", "prompt_mode": prompt_mode, "bbox": bbox}
 
 
 
 
 
 
-@app.function(image=vllm_image)
+@app.function(image=modal.Image.debian_slim().pip_install("fastapi[standard]"))
 @modal.fastapi_endpoint(method="GET", label="health-v2")
 def health():
     """Health check endpoint"""

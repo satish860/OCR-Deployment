@@ -44,23 +44,31 @@ def extract_structured_data(ocr_text: str, json_schema: str, client: OpenAI, mod
         Dictionary with extraction results
     """
     
-    # Create generic extraction prompt
-    prompt = f"""You are a data extraction expert. Extract structured data from the provided OCR text according to the JSON schema.
+    # Create enhanced extraction prompt optimized for chart data
+    prompt = f"""You are a data extraction expert specializing in business documents with charts and structured data. Extract structured data from the OCR text according to the JSON schema.
 
-OCR Text:
+OCR Text (may contain chart descriptions and tabular data):
 {ocr_text}
 
 Required JSON Schema:
 {json_schema}
 
-Instructions:
-1. Extract data from the OCR text that matches the provided JSON schema exactly
-2. Return ONLY valid JSON that conforms to the schema
-3. For numerical fields, ensure values are the correct data type (numbers, not strings)
-4. For text fields, clean and normalize the text appropriately
-5. If data is unclear or missing, use your best interpretation based on context
-6. Ensure the output structure matches the schema precisely
-7. Return only the JSON object with no additional text
+ENHANCED EXTRACTION INSTRUCTIONS:
+1. CHART DATA PRIORITY: If the OCR text contains chart descriptions or data tables, prioritize extracting numerical values and data relationships
+2. EXACT SCHEMA MATCHING: Extract data that matches the JSON schema precisely - do not add extra fields
+3. DATA TYPE ACCURACY: 
+   - Numbers must be actual numbers (not strings)
+   - Preserve decimal places and units where specified
+   - Convert percentages to decimal if schema requires it
+4. INTELLIGENT PARSING:
+   - Look for structured data within chart descriptions
+   - Extract data from tables, lists, and formatted text
+   - Use context clues to identify which data maps to which schema fields
+5. MISSING DATA HANDLING: If required schema fields are not found in OCR text, use null or appropriate defaults
+6. VALIDATION: Ensure output is valid JSON that exactly matches the provided schema structure
+7. BUSINESS CONTEXT: Consider that this may be financial, operational, or performance data from business documents
+
+CRITICAL: Return ONLY the JSON object with no markdown formatting, explanations, or additional text.
 
 JSON Output:"""
 

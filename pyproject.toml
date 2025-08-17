@@ -46,6 +46,11 @@ packages = ["src/ocr_deployment"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[dependency-groups]
+benchmark = [
+    "pymupdf>=1.23.0",
+]
+
 [tool.ruff]
 line-length = 88
 target-version = "py39"

@@ -1907,6 +1907,11 @@ windows = [
     { name = "pillow-simd" },
 ]
 
+[package.dev-dependencies]
+benchmark = [
+    { name = "pymupdf" },
+]
+
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", marker = "extra == 'benchmark'", specifier = ">=4.12.0" },
@@ -1930,6 +1935,9 @@ requires-dist = [
     { name = "tqdm", marker = "extra == 'benchmark'", specifier = ">=4.65.0" },
 ]
 provides-extras = ["benchmark", "windows", "dev"]
+
+[package.metadata.requires-dev]
+benchmark = [{ name = "pymupdf", specifier = ">=1.23.0" }]
 
 [[package]]
 name = "openai"

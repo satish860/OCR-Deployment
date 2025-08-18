@@ -43,16 +43,42 @@ A production-ready deployment of [DotsOCR](https://github.com/ucaslcl/DotsOCR) o
 
 ```
 OCR-Deployment/
-├── modal_deploy.py              # Main Modal deployment file with H100 optimizations
-├── test_consolidated_endpoint.py # Basic functionality and performance tests
-├── test_concurrent_requests.py  # Concurrent processing validation
-├── test_batch_limits.py         # Maximum batch size testing
-├── test_variable_load.py        # Realistic mixed workload testing
-├── ocr_result.txt              # Example OCR output
-└── dots.ocr/                   # Complete DotsOCR model
-    ├── weights/DotsOCR/        # Model weights and configuration
-    ├── dots_ocr/               # Source code and utilities
-    └── tools/                  # Model download tools
+├── src/
+│   └── ocr_deployment/
+│       ├── modal_deploy.py     # Main Modal deployment file with H100 optimizations
+│       └── utils/              # Deployment utilities
+├── tests/                      # Comprehensive test suite
+│   ├── test_modal_client.py    # Modal client testing
+│   ├── test_consolidated_endpoint.py # Basic functionality and performance tests
+│   ├── test_concurrent_requests.py  # Concurrent processing validation
+│   ├── test_batch_limits.py         # Maximum batch size testing
+│   ├── test_variable_load.py        # Realistic mixed workload testing
+│   ├── test_chart_processing.py     # Chart and table processing tests
+│   ├── test_accuracy.py             # OCR accuracy validation
+│   ├── test_multi_page.py           # Multi-page document processing
+│   ├── test_horizontal_scaling.py   # Scaling and performance tests
+│   ├── test_batch_performance.py    # Batch processing benchmarks
+│   └── test_startup_timing.py       # Container startup timing tests
+├── benchmark/                  # Benchmarking and evaluation framework
+│   ├── data/                   # Test images and ground truth data (10 examples)
+│   ├── results/                # Benchmark results and analysis
+│   ├── run_batch_benchmark.py  # Batch processing benchmarks
+│   ├── run_chart_benchmark.py  # Chart-specific benchmarks
+│   ├── test_single_example.py  # Single example testing
+│   ├── analyze_failures.py     # Failure analysis tools
+│   ├── compare_prompting_results.py # Prompt comparison analysis
+│   └── extraction_utils.py     # Utility functions for extraction
+├── results/                    # Test and benchmark results
+├── input/                      # Sample input documents (PDFs)
+├── dots.ocr/                   # Complete DotsOCR model
+│   ├── weights/DotsOCR/        # Model weights and configuration
+│   ├── dots_ocr/               # Source code and utilities
+│   ├── demo/                   # Demo applications (Gradio, Streamlit, etc.)
+│   └── tools/                  # Model download tools
+├── pyproject.toml              # Project configuration and dependencies
+├── uv.lock                     # Dependency lock file
+├── deploy.bat                  # Windows deployment script
+└── CLAUDE.md                   # Development instructions
 ```
 
 ## 🔧 Setup & Deployment
@@ -77,7 +103,12 @@ pip install modal
 
 3. Deploy to Modal:
 ```bash
-modal deploy modal_deploy.py
+modal deploy src/ocr_deployment/modal_deploy.py
+```
+
+Or use the Windows deployment script:
+```cmd
+deploy.bat
 ```
 
 4. The deployment will provide you with endpoint URLs like:
@@ -86,24 +117,53 @@ modal deploy modal_deploy.py
 
 ## 🧪 Testing
 
-### Basic Functionality Test
+The project includes a comprehensive test suite and benchmarking framework.
+
+### Quick Tests
 ```bash
-python test_consolidated_endpoint.py
+# Basic functionality test
+python tests/test_consolidated_endpoint.py
+
+# Concurrent processing test  
+python tests/test_concurrent_requests.py
+
+# Maximum batch size test
+python tests/test_batch_limits.py
+
+# Realistic variable load test
+python tests/test_variable_load.py
 ```
 
-### Concurrent Processing Test
+### Comprehensive Testing
 ```bash
-python test_concurrent_requests.py
+# OCR accuracy validation
+python tests/test_accuracy.py
+
+# Multi-page document processing
+python tests/test_multi_page.py
+
+# Chart and table processing
+python tests/test_chart_processing.py
+
+# Performance and scaling tests
+python tests/test_horizontal_scaling.py
+python tests/test_batch_performance.py
 ```
 
-### Maximum Batch Size Test
+### Benchmarking Framework
 ```bash
-python test_batch_limits.py
-```
+# Run comprehensive benchmarks
+python benchmark/run_batch_benchmark.py
 
-### Realistic Variable Load Test
-```bash
-python test_variable_load.py
+# Chart-specific benchmarks
+python benchmark/run_chart_benchmark.py
+
+# Single example testing
+python benchmark/test_single_example.py
+
+# Analyze benchmark results
+python benchmark/analyze_failures.py
+python benchmark/compare_prompting_results.py
 ```
 
 ### API Usage

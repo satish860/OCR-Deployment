@@ -2,6 +2,7 @@ import modal
 import os
 import json
 from pathlib import Path
+from fastapi import Query
 
 # Create the Modal app
 app = modal.App("dotsocr-gpu-v3")
@@ -86,7 +87,7 @@ PROMPT_DICT = {
     min_containers=1,
     experimental_options={"enable_gpu_snapshot": True},
 )
-@modal.concurrent(max_inputs=1)
+@modal.concurrent(max_inputs=5)  # Increased concurrency for better single image performance
 class GPUEndpoint:
     @modal.enter()
     def load_model(self):
@@ -177,6 +178,7 @@ class GPUEndpoint:
 
         print(f"Model loaded in {time.time() - start:.1f}s")
 
+
     def generate_batch(
         self,
         images_b64: list,
@@ -204,23 +206,23 @@ class GPUEndpoint:
                 return ["Error: Model not properly initialized"] * len(images_b64)
 
             # Prepare all prompts and images for batch processing
+            import base64
+            import io
+            from PIL import Image
+            
             batch_prompts = []
 
             for i, (image_b64, prompt_text) in enumerate(zip(images_b64, prompts)):
                 # Format the input as DotsOCR expects
                 formatted_prompt = f"<|img|><|imgpad|><|endofimg|>{prompt_text}"
 
-                # Convert base64 back to PIL image for vLLM generate API
-                import base64
-                import io
-                from PIL import Image
-
-                # Extract base64 data from data URL
+                # Optimized base64 decode - extract data once
                 if image_b64.startswith("data:image/"):
-                    base64_data = image_b64.split(",")[1]
+                    base64_data = image_b64.split(",", 1)[1]  # More efficient split
                 else:
                     base64_data = image_b64
 
+                # Fast base64 decode and PIL creation
                 image_bytes = base64.b64decode(base64_data)
                 pil_image = Image.open(io.BytesIO(image_bytes))
 
@@ -228,7 +230,7 @@ class GPUEndpoint:
                 batch_prompts.append(
                     {"prompt": formatted_prompt, "multi_modal_data": {"image": pil_image}}
                 )
-                print(f"DEBUG: Prepared image {i} for batch processing")
+                print(f"DEBUG: Prepared image {i} ({pil_image.size}) for batch processing")
 
             print(f"DEBUG: About to call batch vLLM generate with {len(batch_prompts)} prompts")
 
@@ -386,6 +388,8 @@ class GPUEndpoint:
 
         except Exception as e:
             return {"success": False, "error": f"Processing failed: {str(e)}"}
+
+
 
     @modal.fastapi_endpoint(method="GET", label="health") 
     def health(self):

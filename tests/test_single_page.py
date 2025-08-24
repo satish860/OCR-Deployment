@@ -8,21 +8,27 @@ import fitz  # PyMuPDF
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+import modal
+import sys
+from pathlib import Path
 
-def pdf_page_to_base64(pdf_path, page_num=0, dpi=150):
+# Add src to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+def pdf_page_to_base64(pdf_path, page_num=0, dpi=100):
     """Convert a PDF page to base64 encoded image"""
     doc = fitz.open(pdf_path)
     page = doc[page_num]
     
     # Render page to image
-    mat = fitz.Matrix(dpi/72, dpi/72)  # 200 DPI
+    mat = fitz.Matrix(dpi/72, dpi/72)  # Optimized DPI
     pix = page.get_pixmap(matrix=mat)
     img_data = pix.tobytes("png")
     
-    # Convert to PIL Image and then to base64
+    # Convert to PIL Image and then to base64 (optimized JPEG)
     pil_image = Image.open(io.BytesIO(img_data))
     buffered = io.BytesIO()
-    pil_image.save(buffered, format="PNG")
+    pil_image.save(buffered, format="JPEG", quality=85, optimize=True)
     img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     doc.close()
@@ -299,11 +305,25 @@ def process_charts_in_ocr_result(ocr_result, full_image_base64, openai_client):
         print(f"[ERROR] Chart processing failed: {e}")
         return ocr_result, 0
 
+async def test_single_page_async():
+    # Async version for direct Modal calls
+    pass
+
 def test_single_page():
     # Configuration
-    pdf_path = "../input/2e1b63c5-761d-48b9-b3b5-f263c3db4e30.pdf"
-    modal_endpoint = "https://marker--dotsocr-v2.modal.run"
-    process_charts = True  # Set to False to disable chart processing
+    pdf_path = "input/44abcd07-58ab-4957-a66b-c03e82e11e6f.pdf"
+    use_gpu_direct = True  # Set to True to use GPU direct HTTP endpoint
+    gpu_direct_endpoint = "https://marker--gpu-direct.modal.run"  # Direct GPU HTTP endpoint
+    fastapi_endpoint = "https://marker--dotsocr-v2.modal.run"  # Original FastAPI wrapper
+    process_charts = False  # Set to True to enable chart processing (adds ~2s)
+    
+    # Choose endpoint
+    if use_gpu_direct:
+        modal_endpoint = gpu_direct_endpoint
+        print("[INFO] Using GPU direct HTTP endpoint (bypasses FastAPI wrapper)")
+    else:
+        modal_endpoint = fastapi_endpoint
+        print("[INFO] Using FastAPI wrapper HTTP endpoint")
     
     print(f"Loading PDF: {pdf_path}")
     
@@ -328,23 +348,24 @@ def test_single_page():
     request_data = {
         "image": image_b64,
         "prompt_mode": "prompt_layout_all_en",
-        "max_tokens": 1500,
+        "max_tokens": 800,
         "temperature": 0.0,
         "top_p": 0.9
     }
     
-    print(f"Sending request to Modal endpoint...")
     print(f"Image data size: {len(image_b64):,} characters")
     
     # Send request and measure time
     start_request = time.time()
     try:
-        response = requests.post(modal_endpoint, json=request_data, timeout=300)  # 5 minute timeout
+        print(f"Sending request to: {modal_endpoint}")
+        response = requests.post(modal_endpoint, json=request_data, timeout=120)  # 2 minute timeout
         end_request = time.time()
         
         request_time = end_request - start_request
+        endpoint_type = "GPU Direct" if use_gpu_direct else "FastAPI"
         
-        print(f"[OK] OCR completed in {request_time:.2f}s")
+        print(f"[OK] {endpoint_type} OCR completed in {request_time:.2f}s")
         
         if response.status_code == 200:
             result = response.json()
@@ -352,59 +373,75 @@ def test_single_page():
                 ocr_result = result.get("result", "")
                 print(f"[INFO] OCR result length: {len(ocr_result):,} characters")
                 
-                # Process charts if enabled
-                charts_processed = 0
-                chart_time = 0
-                
-                if process_charts and openai_client:
-                    print("\n[CHART] Starting chart processing...")
-                    start_chart = time.time()
+                # Check processing method if available
+                if result.get("processing_method"):
+                    print(f"[INFO] Processing method: {result.get('processing_method')}")
                     
-                    # Create full image base64 with data URL prefix
-                    full_image_b64 = f"data:image/png;base64,{image_b64}"
-                    
-                    ocr_result, charts_processed = process_charts_in_ocr_result(
-                        ocr_result, image_b64, openai_client
-                    )
-                    
-                    chart_time = time.time() - start_chart
-                    print(f"[CHART] Chart processing completed in {chart_time:.2f}s")
-                    print(f"[CHART] Charts processed: {charts_processed}")
-                
-                total_time = convert_time + request_time + chart_time
-                print(f"[TIMING] Convert: {convert_time:.2f}s | OCR: {request_time:.2f}s | Charts: {chart_time:.2f}s | Total: {total_time:.2f}s")
-                
-                # Save result to file
-                output_filename = "page_0_result_with_charts.md" if charts_processed > 0 else "page_0_result.md"
-                with open(output_filename, "w", encoding="utf-8") as f:
-                    f.write(ocr_result)
-                print(f"[SAVED] Result saved to {output_filename}")
-                
-                # Print first 500 characters
-                print(f"[PREVIEW] First 500 characters:")
-                print("-" * 50)
-                print(ocr_result[:500])
-                if len(ocr_result) > 500:
-                    print("...")
-                print("-" * 50)
-                
-                # Summary
-                if charts_processed > 0:
-                    print(f"\n[SUCCESS] Processed {charts_processed} charts with LLM analysis")
-                else:
-                    print(f"\n[INFO] No charts found or processed")
-                
+                success = True
             else:
                 print(f"[ERROR] OCR failed: {result.get('error', 'Unknown error')}")
+                success = False
         else:
             print(f"[ERROR] HTTP Error {response.status_code}: {response.text}")
+            success = False
+        
+        if success:
+                
+            # Process charts if enabled
+            charts_processed = 0
+            chart_time = 0
+            
+            if process_charts and openai_client:
+                print("\n[CHART] Starting chart processing...")
+                start_chart = time.time()
+                
+                # Create full image base64 with data URL prefix
+                full_image_b64 = f"data:image/png;base64,{image_b64}"
+                
+                ocr_result, charts_processed = process_charts_in_ocr_result(
+                    ocr_result, image_b64, openai_client
+                )
+                
+                chart_time = time.time() - start_chart
+                print(f"[CHART] Chart processing completed in {chart_time:.2f}s")
+                print(f"[CHART] Charts processed: {charts_processed}")
+            
+            total_time = convert_time + request_time + chart_time
+            total_time = convert_time + request_time + chart_time
+            method = "GPU-Direct" if use_gpu_direct else "FastAPI"
+            print(f"[TIMING] Convert: {convert_time:.2f}s | OCR ({method}): {request_time:.2f}s | Charts: {chart_time:.2f}s | Total: {total_time:.2f}s")
+                
+            # Save result to file
+            method_suffix = "_gpu_direct" if use_gpu_direct else "_fastapi"
+            output_filename = f"page_0_result{method_suffix}_with_charts.md" if charts_processed > 0 else f"page_0_result{method_suffix}.md"
+            with open(output_filename, "w", encoding="utf-8") as f:
+                f.write(ocr_result)
+            print(f"[SAVED] Result saved to {output_filename}")
+            
+            # Print first 500 characters
+            print(f"[PREVIEW] First 500 characters:")
+            print("-" * 50)
+            print(ocr_result[:500])
+            if len(ocr_result) > 500:
+                print("...")
+            print("-" * 50)
+            
+            # Summary
+            if charts_processed > 0:
+                print(f"\n[SUCCESS] Processed {charts_processed} charts with LLM analysis")
+            else:
+                print(f"\n[INFO] No charts found or processed")
+        else:
+            print(f"\n[ERROR] OCR processing failed")
             
     except requests.exceptions.Timeout:
-        print("[ERROR] Request timed out after 5 minutes")
+        print("[ERROR] Request timed out after 2 minutes")
     except requests.exceptions.RequestException as e:
         print(f"[ERROR] Request failed: {e}")
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
+        import traceback
+        traceback.print_exc()
 
 if __name__ == "__main__":
     print("Testing single page OCR processing time")

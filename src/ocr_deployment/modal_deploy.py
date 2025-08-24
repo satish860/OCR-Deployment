@@ -91,7 +91,6 @@ class vLLMModel:
 
         # Register DotsOCR model with vLLM
         try:
-            import importlib.util
             from vllm import ModelRegistry
 
             print("🔧 DEBUG: About to register DotsOCR model")
@@ -128,7 +127,7 @@ class vLLMModel:
         # Initialize vLLM engine
         try:
             print("🔧 DEBUG: About to import vLLM")
-            from vllm import LLM, SamplingParams
+            from vllm import LLM
 
             print("🔧 DEBUG: About to initialize LLM")
             self.llm = LLM(
@@ -233,7 +232,7 @@ class vLLMModel:
             image_bytes = base64.b64decode(base64_data)
             pil_image = Image.open(io.BytesIO(image_bytes))
 
-            print(f"🔧 DEBUG: Using direct generate() with PIL image")
+            print("🔧 DEBUG: Using direct generate() with PIL image")
 
             # Generate response
             print("🔧 DEBUG: About to call self.llm.generate")
@@ -362,6 +361,65 @@ class vLLMModel:
             return {"status": "healthy", "model": MODEL_NAME}
         except Exception as e:
             return {"status": "unhealthy", "error": str(e)}
+    
+    @modal.fastapi_endpoint(method="POST", label="gpu-direct")
+    def gpu_direct_endpoint(self, request_data: dict):
+        """Direct HTTP endpoint to GPU container (bypasses FastAPI wrapper)"""
+        try:
+            # Extract parameters
+            image_b64 = request_data.get("image")
+            prompt_mode = request_data.get("prompt_mode", "prompt_layout_all_en")
+            max_tokens = request_data.get("max_tokens", 1500)
+            temperature = request_data.get("temperature", 0.1)
+            top_p = request_data.get("top_p", 0.9)
+            
+            if not image_b64:
+                return {"success": False, "error": "No image provided"}
+            
+            # Convert prompt_mode to actual prompt text
+            PROMPT_DICT = {
+                "prompt_layout_all_en": """Please output the layout information from the PDF image, including each layout element's bbox, its category, and the corresponding text content within the bbox.
+
+1. Bbox format: [x1, y1, x2, y2]
+
+2. Layout Categories: The possible categories are ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title'].
+
+3. Text Extraction & Formatting Rules:
+    - Picture: For the 'Picture' category, the text field should be omitted.
+    - Formula: Format its text as LaTeX.
+    - Table: Format its text as HTML.
+    - All Others (Text, Title, etc.): Format their text as Markdown.
+
+4. Constraints:
+    - The output text must be the original text from the image, with no translation.
+    - All layout elements must be sorted according to human reading order.
+
+5. Final Output: The entire output must be a single JSON object.""",
+                "prompt_layout_only_en": """Please output the layout information from this PDF image, including each layout's bbox and its category. The bbox should be in the format [x1, y1, x2, y2]. The layout categories for the PDF document include ['Caption', 'Footnote', 'Formula', 'List-item', 'Page-footer', 'Page-header', 'Picture', 'Section-header', 'Table', 'Text', 'Title']. Do not output the corresponding text. The layout result should be in JSON format.""",
+                "prompt_ocr": """Extract the text content from this image.""",
+                "prompt_grounding_ocr": """Extract text from the given bounding box on the image (format: [x1, y1, x2, y2]).\nBounding Box:\n""",
+            }
+            
+            prompt_text = PROMPT_DICT.get(prompt_mode, prompt_mode)
+            
+            # Call the generate method directly on this instance
+            result = self.generate(
+                image_b64,
+                prompt_text,
+                max_tokens,
+                temperature,
+                top_p
+            )
+            
+            return {
+                "success": True,
+                "result": result,
+                "prompt_mode": prompt_mode,
+                "processing_method": "gpu_direct"
+            }
+            
+        except Exception as e:
+            return {"success": False, "error": str(e)}
 
 
 # Create a persistent model instance

@@ -1,3 +1,4 @@
 @echo off
 chcp 65001
-modal deploy src\ocr_deployment\modal_deploy.py
+echo Deploying simplified GPU-direct OCR service...
+uv run modal deploy src\ocr_deployment\modal_gpu.py

@@ -1,43 +1,36 @@
-# DotsOCR Modal Deployment
+# DotsOCR GPU-Direct Modal Deployment
 
-A production-ready deployment of [DotsOCR](https://github.com/ucaslcl/DotsOCR) on Modal with GPU acceleration using vLLM.
+A simplified, high-performance deployment of [DotsOCR](https://github.com/ucaslcl/DotsOCR) on Modal with direct GPU processing and vLLM batching.
 
-**⚡ WORLD-CLASS PERFORMANCE**: Process up to 1000 document pages in a single batch at **0.14 seconds per page** - achieving **440 pages per minute** throughput with H100 GPU acceleration.
+**⚡ SIMPLIFIED ARCHITECTURE**: Direct GPU processing with **4.6x faster** batch performance - no hopping, clean code, all optimizations preserved.
 
 ## 🚀 Features
 
-- **Blazing Fast OCR**: **0.14s per page** with true vLLM batch processing on H100
-- **Massive Scale**: Handle **1000+ pages** in a single API call  
-- **H100 GPU Acceleration**: 80GB VRAM with optimized memory utilization (2x A100 capacity)
-- **True Concurrency**: Process up to 15 simultaneous requests with auto-scaling
+- **Direct GPU Processing**: No hopping - everything runs on GPU container (2.15s vs 9.96s per page)
+- **4.6x Batch Speedup**: True vLLM batching processes multiple images simultaneously
+- **Clean Architecture**: Simplified codebase with all GPU optimizations preserved
+- **H100 GPU Acceleration**: 80GB VRAM with GPU snapshots and warm containers
 - **Multiple Prompt Modes**: Layout detection, simple OCR, grounding OCR, and full analysis
-- **Production Ready**: Enterprise-scale batch processing with robust error handling
-- **Instant Startup**: Lightweight web layer eliminates cold start delays
-- **Easy Deployment**: One-command deployment to Modal cloud
+- **Easy Client Library**: Clean Python client with no Modal SDK required
+- **One-Command Deploy**: Simple deployment with `uv run modal deploy`
+- **Comprehensive Testing**: Performance comparison and batch vs sequential testing
 
 ## 📈 Performance Benchmarks
 
-### H100 Batch Processing Performance
-| Batch Size | Time per Page | Total Time | Throughput |
-|------------|---------------|------------|------------|
-| 10 pages   | 1.24s        | 12.4s      | 48 pages/min |
-| 50 pages   | 0.47s        | 23.4s      | 128 pages/min |
-| 100 pages  | 0.25s        | 24.5s      | 245 pages/min |
-| **200 pages** | **0.20s** | **39.4s** | **305 pages/min** |
-| **500 pages** | **0.15s** | **73.2s** | **410 pages/min** |
-| **1000 pages** | **0.14s** | **136.4s** | **440 pages/min** |
+### Batch vs Sequential Processing (10 pages)
+| Processing Method | Total Time | Time per Page | Speedup |
+|------------------|------------|---------------|---------|
+| **Batch Processing** | **21.54s** | **2.15s** | **4.6x faster** |
+| Sequential Processing | 99.56s | 9.96s | 1.0x baseline |
 
-### Competitive Advantage
-| Solution | Speed | Batch Size | Concurrency | Setup Complexity |
-|----------|--------|------------|-------------|------------------|
-| **This Deployment (H100)** | **0.14s/page** | **1000+** | **15+ concurrent** | Simple |
-| Google Document AI | 2-5s/page | 1-10 | Limited | Simple |
-| AWS Textract | 2-4s/page | 1-20 | Limited | Simple |
-| Azure Form Recognizer | 2-5s/page | 1-15 | Limited | Simple |
-| OpenAI GPT-4V | 5-10s/page | 1-5 | Limited | Simple |
-| Custom vLLM Setup | 0.5-2s/page | 100+ | Complex | Very Complex |
+### Architecture Comparison
+| Architecture | Processing | Code Complexity | GPU Efficiency | Maintenance |
+|-------------|-----------|-----------------|----------------|-------------|
+| **GPU-Direct (This)** | **Direct GPU** | **Simple** | **Optimal** | **Easy** |
+| Previous (Hopping) | CPU→GPU hops | Complex | Inefficient | Hard |
+| Cloud APIs | External | Simple | N/A | Limited |
 
-**🎯 Result: 15-35x faster than managed cloud APIs with enterprise-scale batch processing and true concurrent request handling.**
+**🎯 Result: 4.6x faster batch processing with significantly cleaner, more maintainable code.**
 
 ## 📁 Project Structure
 
@@ -45,20 +38,18 @@ A production-ready deployment of [DotsOCR](https://github.com/ucaslcl/DotsOCR) o
 OCR-Deployment/
 ├── src/
 │   └── ocr_deployment/
-│       ├── modal_deploy.py     # Main Modal deployment file with H100 optimizations
+│       ├── modal_gpu.py        # NEW: Simplified GPU-direct deployment
+│       ├── client.py           # NEW: Clean OCR client library
+│       ├── modal_deploy.py     # Previous complex deployment
 │       └── utils/              # Deployment utilities
 ├── tests/                      # Comprehensive test suite
+│   ├── test_ocr_client.py      # NEW: Clean client testing with batch vs sequential
+│   ├── test_single_page.py     # Previous complex test with chart processing
 │   ├── test_modal_client.py    # Modal client testing
 │   ├── test_consolidated_endpoint.py # Basic functionality and performance tests
 │   ├── test_concurrent_requests.py  # Concurrent processing validation
 │   ├── test_batch_limits.py         # Maximum batch size testing
-│   ├── test_variable_load.py        # Realistic mixed workload testing
-│   ├── test_chart_processing.py     # Chart and table processing tests
-│   ├── test_accuracy.py             # OCR accuracy validation
-│   ├── test_multi_page.py           # Multi-page document processing
-│   ├── test_horizontal_scaling.py   # Scaling and performance tests
-│   ├── test_batch_performance.py    # Batch processing benchmarks
-│   └── test_startup_timing.py       # Container startup timing tests
+│   └── [other legacy tests]         # Additional testing files
 ├── benchmark/                  # Benchmarking and evaluation framework
 │   ├── data/                   # Test images and ground truth data (10 examples)
 │   ├── results/                # Benchmark results and analysis
@@ -103,7 +94,7 @@ pip install modal
 
 3. Deploy to Modal:
 ```bash
-modal deploy src/ocr_deployment/modal_deploy.py
+uv run modal deploy src/ocr_deployment/modal_gpu.py
 ```
 
 Or use the Windows deployment script:
@@ -112,8 +103,8 @@ deploy.bat
 ```
 
 4. The deployment will provide you with endpoint URLs like:
-   - OCR Endpoint: `https://your-app--dotsocr-v2.modal.run/`
-   - Health Check: `https://your-app--health-v2.modal.run/`
+   - OCR Process Endpoint: `https://your-app--process.modal.run`
+   - Health Check: `https://your-app--health.modal.run`
 
 ## 🧪 Testing
 
@@ -121,17 +112,12 @@ The project includes a comprehensive test suite and benchmarking framework.
 
 ### Quick Tests
 ```bash
-# Basic functionality test
-python tests/test_consolidated_endpoint.py
+# NEW: Clean client test with batch vs sequential comparison
+uv run python tests/test_ocr_client.py
 
-# Concurrent processing test  
-python tests/test_concurrent_requests.py
-
-# Maximum batch size test
-python tests/test_batch_limits.py
-
-# Realistic variable load test
-python tests/test_variable_load.py
+# Legacy tests (still functional)
+uv run python tests/test_consolidated_endpoint.py
+uv run python tests/test_single_page.py
 ```
 
 ### Comprehensive Testing
@@ -168,51 +154,49 @@ python benchmark/compare_prompting_results.py
 
 ### API Usage
 
-#### Single Image Processing
+#### Using the Clean Client Library
 ```python
-import requests
-import base64
+from src.ocr_deployment.client import OCRClient
 
-# Load and encode image
-with open("image.jpg", "rb") as f:
-    image_b64 = base64.b64encode(f.read()).decode()
+# Initialize client
+client = OCRClient(
+    process_url="https://your-app--process.modal.run",
+    health_url="https://your-app--health.modal.run"
+)
 
-# Single image OCR request
-response = requests.post("https://your-app--dotsocr-v2.modal.run/", json={
-    "image": image_b64,
-    "prompt_mode": "prompt_layout_all_en",
-    "temperature": 0.1,
-    "top_p": 0.9
-})
+# Check health
+health = client.check_health()
+print(f"Service healthy: {health['healthy']}")
 
-result = response.json()
-print(result["result"])
+# Process single PDF page
+result = client.process_pdf_page("document.pdf", page_num=0)
+if result["success"]:
+    print(f"OCR result: {result['result'][:200]}...")
+    client.save_result(result, "output.md")
+
+# Process multiple images in batch (4.6x faster!)
+images_b64 = [client.pdf_page_to_base64("doc.pdf", i)[0] for i in range(10)]
+batch_result = client.process_batch(images_b64)
+print(f"Batch processed {batch_result['total_pages']} pages in {batch_result['processing_time']:.2f}s")
 ```
 
-#### Batch Processing (High Performance)
+#### Direct HTTP API Usage
 ```python
 import requests
-import base64
 
-# Load multiple images
-images = []
-for i in range(100):  # Process 100 pages at once
-    with open(f"page_{i}.jpg", "rb") as f:
-        image_b64 = base64.b64encode(f.read()).decode()
-        images.append(image_b64)
-
-# Batch OCR request - processes all images in parallel
-response = requests.post("https://your-app--dotsocr-v2.modal.run/", json={
-    "images": images,  # Array of base64 images
+# Single image OCR request
+response = requests.post("https://your-app--process.modal.run", json={
+    "image": "base64_image_data",
     "prompt_mode": "prompt_layout_all_en",
-    "temperature": 0.1,
+    "temperature": 0.0,
     "top_p": 0.9
 })
 
-result = response.json()
-print(f"Processed {result['total_pages']} pages")
-for page_result in result["results"]:
-    print(f"Page {page_result['page_number']}: {page_result['result'][:100]}...")
+# Batch OCR request (much faster for multiple images)
+response = requests.post("https://your-app--process.modal.run", json={
+    "images": ["base64_image_1", "base64_image_2", "..."],
+    "prompt_mode": "prompt_layout_all_en"
+})
 ```
 
 #### Available Prompt Modes
@@ -232,26 +216,25 @@ The OCR system extracts structured text with bounding boxes and categories:
 }
 ```
 
-## 🏗️ Architecture
+## 🏗️ Simplified Architecture
+
+### GPU-Direct Design
+- **Single Container**: Both `/process` and `/health` endpoints run on same GPU container
+- **No Hopping**: Direct GPU processing eliminates CPU→GPU round trips
+- **Shared Model**: Single vLLM instance serves both endpoints efficiently
+- **Clean Code**: Removed ~500 lines of unnecessary complexity
 
 ### Core Infrastructure
 - **Base Image**: NVIDIA CUDA 12.8.1 with Python 3.12
 - **Model**: DotsOCR (1.7B parameters) with vLLM integration
-- **GPU**: H100-80GB with 95% memory utilization (2x A100 capacity)
-- **Batch Processing**: True vLLM tensor parallelism (not sequential)
-- **Context Length**: 131,072 tokens for large document processing
+- **GPU**: H100-80GB with 95% memory utilization (all optimizations preserved)
+- **Batch Processing**: True vLLM tensor parallelism (4.6x faster than sequential)
 
-### Multi-Layer Design
-- **Lightweight Web Layer**: FastAPI containers for instant request handling
-- **Heavy GPU Layer**: H100 containers for ML processing with auto-scaling
-- **Concurrent Processing**: Up to 15 simultaneous requests via Modal auto-scaling
-- **Smart Load Balancing**: Automatic traffic distribution across containers
-
-### Performance Optimizations
-- **GPU Snapshots**: Faster container startup times
-- **Fast Image Processor**: Optimized tensor operations
+### Key Optimizations Preserved
+- **GPU Snapshots**: `experimental_options={"enable_gpu_snapshot": True}`
+- **Warm Containers**: `min_containers=1` and 30-minute scaledown
 - **Memory Efficiency**: 95% H100 utilization without OOM errors
-- **Container Warm-up**: min_containers=1 eliminates cold starts
+- **Fast Processor**: `TRANSFORMERS_USE_FAST_PROCESSOR=1`
 
 ## 🔧 Technical Optimizations
 

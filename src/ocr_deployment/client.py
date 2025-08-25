@@ -170,7 +170,8 @@ class OCRClient:
         prompt_mode: str = "prompt_layout_all_en",
         max_tokens: int = 1500,
         temperature: float = 0.0,
-        top_p: float = 0.9
+        top_p: float = 0.9,
+        bbox: List[int] = None
     ) -> Dict[str, Any]:
         """
         Process a single image.
@@ -192,6 +193,10 @@ class OCRClient:
             "temperature": temperature,
             "top_p": top_p
         }
+        
+        # Add bbox parameter for grounding OCR
+        if bbox is not None:
+            request_data["bbox"] = bbox
         
         try:
             start_time = time.time()
